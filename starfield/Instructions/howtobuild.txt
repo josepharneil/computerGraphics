@@ -1,0 +1,4 @@
+How to build:
+cd COMS30115/Labs/starfield/
+make
+./Build/skeleton
