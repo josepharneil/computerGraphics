@@ -55,7 +55,7 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel( triangles );
 
-  vec4 cameraPos(0.0f,0.0f,-2.0f,1.0f);
+  vec4 cameraPos(0.0f,0.0f,-3.0f,1.0f);
 
   //Update and draw
   while( NoQuitMessageSDL() )
@@ -77,7 +77,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos)
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  float focalLength = 150.0f;//bigger zooms
+  float focalLength = 250.0f;//bigger zooms
 
   Intersection closestIntersection;
 
@@ -131,36 +131,36 @@ void Update(vec4& cameraPos)
   SDL_Event e;
 
   // cout << "ASDFsdf " << "\n";
-  while(SDL_PollEvent(&e))
-  {
-    // cout << "asdlgjh \n";
+  // while(SDL_PollEvent(&e))
+  // {
+  //   // cout << "asdlgjh \n";
 
-    if( e.type != SDL_KEYDOWN) {continue;}
+  //   if( e.type != SDL_KEYDOWN) {continue;}
 
-    if( e.key.keysym.scancode == SDL_SCANCODE_UP )
-    {
-      cameraPos.z += movementSpeed;
-      // cout << "move fwd" << " \n";
-    }
-    if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
-    {
-      //Move camera backward
-      cameraPos.z -= movementSpeed;
-      // cout << "move fwd" << " \n";
-    }
-    if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
-    {
-      //Move camera left
-      cameraPos.x -= movementSpeed;
-      // cout << "move fwd" << " \n";
-    }
-    if( e.key.keysym.scancode == SDL_SCANCODE_RIGHT )
-    {
-      cameraPos.x += movementSpeed;
-      //Move camera right
-      // cout << "move fwd" << " \n";
-    }
-  }
+  //   if( e.key.keysym.scancode == SDL_SCANCODE_UP )
+  //   {
+  //     cameraPos.z += movementSpeed;
+  //     // cout << "move fwd" << " \n";
+  //   }
+  //   if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
+  //   {
+  //     //Move camera backward
+  //     cameraPos.z -= movementSpeed;
+  //     // cout << "move fwd" << " \n";
+  //   }
+  //   if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
+  //   {
+  //     //Move camera left
+  //     cameraPos.x -= movementSpeed;
+  //     // cout << "move fwd" << " \n";
+  //   }
+  //   if( e.key.keysym.scancode == SDL_SCANCODE_RIGHT )
+  //   {
+  //     cameraPos.x += movementSpeed;
+  //     //Move camera right
+  //     // cout << "move fwd" << " \n";
+  //   }
+  // }
 
 }
 
@@ -214,7 +214,7 @@ bool ClosestIntersection(
     // if (u < 1 && u > 0) {cout << u << " ";}
 
     //Check if is intersection is within triangle
-    if ( (u > 0.0f) && (v > 0.0f) && (u + v < 1.0f))// && (t > 0.0f) )
+    if ( (u >= 0.0f) && (v >= 0.0f) && (u + v <= 1.0f))// && (t > 0.0f) )
     {
       result = true;
       //Compute "intersection" structure
@@ -224,6 +224,8 @@ bool ClosestIntersection(
         closestIntersection.position = vec4(t,u,v,1);
         closestIntersection.distance = t;
         closestIntersection.triangleIndex = i;
+
+        minDist = t;
       }
     }
   }
