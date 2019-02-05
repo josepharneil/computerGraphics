@@ -34,11 +34,11 @@ struct Intersection
     int triangleIndex;
 };
 
-/* ----------------------------------------------------------------------*/
+/* -----------------------------------------------------------------------*/
 /* FUNCTIONS                                                             */
 
-void Update();
-void Draw(screen* screen, vector<Triangle>& triangles);
+void Update(vec4& cameraPos);
+void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -55,11 +55,13 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel( triangles );
 
+  vec4 cameraPos(0.0f,0.0f,-2.0f,1.0f);
+
   //Update and draw
   while( NoQuitMessageSDL() )
     {
-      Draw(screen, triangles);
-      Update();
+      Draw(screen, triangles, cameraPos);
+      Update(cameraPos);
       SDL_Renderframe(screen);
     }
 
@@ -70,13 +72,12 @@ int main( int argc, char* argv[] )
 }
 
 /*Place your drawing here*/
-void Draw(screen* screen, vector<Triangle>& triangles)
+void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos)
 {
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  float focalLength = 1.0f;
-  vec4 cameraPos(0.0f,0.0f,0.0f,1.0f);
+  float focalLength = 150.0f;//bigger zooms
 
   Intersection closestIntersection;
 
@@ -109,33 +110,58 @@ void Draw(screen* screen, vector<Triangle>& triangles)
         vec3 colour = intersectedTriangle.color;
 
         //set to colour of that triangle
-        PutPixelSDL(screen, row, col, colour);
+        PutPixelSDL(screen, col, row, colour);
       }
-      //Else set to black
-      // else
-      // {
-      //   //set to black
-      // }
-
-
-
+      //ELSE set to black
     }
   }
-
-
 }
 
 /*Place updates of parameters here*/
-void Update()
+void Update(vec4& cameraPos)
 {
   static int t = SDL_GetTicks();
   /* Compute frame time */
   int t2 = SDL_GetTicks();
   float dt = float(t2-t);
   t = t2;
-  /*Good idea to remove this*/
-  // std::cout << "Render time: " << dt << " ms." << std::endl;
-  /* Update variables*/
+
+  float movementSpeed = 0.1f;
+
+  SDL_Event e;
+
+  // cout << "ASDFsdf " << "\n";
+  while(SDL_PollEvent(&e))
+  {
+    // cout << "asdlgjh \n";
+
+    if( e.type != SDL_KEYDOWN) {continue;}
+
+    if( e.key.keysym.scancode == SDL_SCANCODE_UP )
+    {
+      cameraPos.z += movementSpeed;
+      // cout << "move fwd" << " \n";
+    }
+    if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
+    {
+      //Move camera backward
+      cameraPos.z -= movementSpeed;
+      // cout << "move fwd" << " \n";
+    }
+    if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
+    {
+      //Move camera left
+      cameraPos.x -= movementSpeed;
+      // cout << "move fwd" << " \n";
+    }
+    if( e.key.keysym.scancode == SDL_SCANCODE_RIGHT )
+    {
+      cameraPos.x += movementSpeed;
+      //Move camera right
+      // cout << "move fwd" << " \n";
+    }
+  }
+
 }
 
 
@@ -154,6 +180,8 @@ bool ClosestIntersection(
   {
     Triangle triangle = triangles[i];
 
+    // cout << (decltype(triangle.v0.x)) << " ";
+
     //3D version of dir (ignore last homogenous component)
     vec3 dir3 = vec3(dir.x, dir.y, dir.z);
 
@@ -171,6 +199,8 @@ bool ClosestIntersection(
 
     //A
     mat3 A = mat3( -dir3, e1, e2 );
+    
+    // cout << -dir3.x << " ";
 
     //x = (t u v)^T
     //COME BACK HERE todo cramar's rule instead of inbuilt inverse
@@ -180,8 +210,11 @@ bool ClosestIntersection(
     float u = x.y;
     float v = x.z;
 
+    // cout << t << " ";
+    // if (u < 1 && u > 0) {cout << u << " ";}
+
     //Check if is intersection is within triangle
-    if ( (u > 0.0f) && (v > 0.0f) && (u + v < 1.0f) && (t > 0.0f) )
+    if ( (u > 0.0f) && (v > 0.0f) && (u + v < 1.0f))// && (t > 0.0f) )
     {
       result = true;
       //Compute "intersection" structure
