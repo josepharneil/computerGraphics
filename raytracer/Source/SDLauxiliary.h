@@ -128,21 +128,21 @@ screen* InitializeSDL(int width,int height, bool fullscreen)
 
 bool NoQuitMessageSDL()
 {
-  SDL_Event e;
-  while( SDL_PollEvent(&e) )
-    {
-      if( e.type == SDL_QUIT )
-	{
-	  return false;
-	}
-      if( e.type == SDL_KEYDOWN )
-	{
-	  if( e.key.keysym.sym == SDLK_ESCAPE)
-	    {
-	      return false;
-	    }
-	}
-    }
+  // SDL_Event e;
+  // while( SDL_PollEvent(&e) )
+  //   {
+  //     if( e.type == SDL_QUIT )
+	// {
+	//   return false;
+	// }
+  //     if( e.type == SDL_KEYDOWN )
+	// {
+	//   if( e.key.keysym.sym == SDLK_ESCAPE)
+	//     {
+	//       return false;
+	//     }
+	// }
+  //   }
   return true;
 }
 

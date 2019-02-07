@@ -5,6 +5,7 @@
 #include "TestModelH.h"
 #include <stdint.h>
 #include <limits>
+#include <math.h>
 
 using namespace std;
 using glm::vec3;
@@ -12,9 +13,9 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 256
-#define FULLSCREEN_MODE false
+#define SCREEN_WIDTH 64   //320
+#define SCREEN_HEIGHT 64  //256
+#define FULLSCREEN_MODE true
 
 // struct Triangle
 // {
@@ -26,6 +27,7 @@ using glm::mat4;
 // };
 /* GLOBAL VARIABLES                                                      */
 int t;
+bool quit;
 
 struct Intersection
 {
@@ -34,19 +36,29 @@ struct Intersection
     int triangleIndex;
 };
 
-/* -----------------------------------------------------------------------*/
-/* FUNCTIONS                                                             */
+/* * * * * * * * * * * * * * * * * * * * * * *
+ *              FUNCTION DEFS
+ * * * * * * * * * * * * * * * * * * * * * * */
 
-void Update(vec4& cameraPos);
-void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos);
+void Update(vec4& cameraPos, float& yaw);
+void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
+                           float& yaw, vec4& lightPos, vec3& lightColour);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
   const vector<Triangle>& triangles,
   Intersection& closestIntersection);
+vec3 DirectLight( const Intersection& i, vec4& lightPos, vec3& lightColour, vector<Triangle>& triangles);
 
+
+
+/* * * * * * * * * * * * * * * * * * * * * * *
+ *                MAIN
+ * * * * * * * * * * * * * * * * * * * * * * */
 int main( int argc, char* argv[] )
 {
+  //Initially, do not quit
+  quit = false;
 
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
   t = SDL_GetTicks();	/*Set start value for timer.*/
@@ -55,29 +67,55 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel( triangles );
 
+  //Camera control
   vec4 cameraPos(0.0f,0.0f,-3.0f,1.0f);
+  float yaw = 0.0f;
+
+  //Create light source
+  vec4 lightPos( 0.0f, -0.5f, -0.7f, 1.0f );
+  vec3 lightColour = 14.0f * vec3( 1.0f, 1.0f, 1.0f );
 
   //Update and draw
-  while( NoQuitMessageSDL() )
+  while( 1 ) //NoQuitMessageSDL() )
     {
-      Draw(screen, triangles, cameraPos);
-      Update(cameraPos);
+      Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour);
+      Update(cameraPos, yaw);
       SDL_Renderframe(screen);
+
+      if(quit){break;}
+
     }
 
+  //Output
   SDL_SaveImage( screen, "screenshot.bmp" );
 
+  //Kill screen
   KillSDL(screen);
   return 0;
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * *
+ *                DRAW
+ * * * * * * * * * * * * * * * * * * * * * * */
 /*Place your drawing here*/
-void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos)
+void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
+                          float& yaw, vec4& lightPos, vec3& lightColour)
 {
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  float focalLength = 250.0f;//bigger zooms
+  // Create rotation matrix
+  mat4 rotMat( vec4(1.0f,0.0f,0.0f,yaw), 
+               vec4(0.0f,1.0f,0.0f,0.0f),
+               vec4(-yaw,0.0f,1.0f,0.0f),
+               vec4(0.0f,0.0f,0.0f,1.0f) );
+
+   vec4 right(   rotMat[0][0], rotMat[0][1], rotMat[0][2], 1 );
+   vec4 down(    rotMat[1][0], rotMat[1][1], rotMat[1][2], 1 );
+   vec4 forward( rotMat[2][0], rotMat[2][1], rotMat[2][2], 1 );
+
+
+  float focalLength = 20.0f;//250.0f;//bigger zooms
 
   Intersection closestIntersection;
 
@@ -92,6 +130,8 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos)
         row-SCREEN_HEIGHT/2,
         focalLength,
         1.0f);
+
+      direction = normalize(direction);
 
       //Compute ClosestIntersection
       bool intersect = ClosestIntersection(
@@ -117,8 +157,11 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos)
   }
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * *
+ *                UPDATE
+ * * * * * * * * * * * * * * * * * * * * * * */
 /*Place updates of parameters here*/
-void Update(vec4& cameraPos)
+void Update(vec4& cameraPos, float& yaw)
 {
   static int t = SDL_GetTicks();
   /* Compute frame time */
@@ -131,40 +174,60 @@ void Update(vec4& cameraPos)
   SDL_Event e;
 
   // cout << "ASDFsdf " << "\n";
-  // while(SDL_PollEvent(&e))
-  // {
-  //   // cout << "asdlgjh \n";
+  while(SDL_PollEvent(&e))
+  {
+    // cout << "asdlgjh \n";
 
-  //   if( e.type != SDL_KEYDOWN) {continue;}
+    if( e.type != SDL_KEYDOWN) {continue;}
 
-  //   if( e.key.keysym.scancode == SDL_SCANCODE_UP )
-  //   {
-  //     cameraPos.z += movementSpeed;
-  //     // cout << "move fwd" << " \n";
-  //   }
-  //   if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
-  //   {
-  //     //Move camera backward
-  //     cameraPos.z -= movementSpeed;
-  //     // cout << "move fwd" << " \n";
-  //   }
-  //   if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
-  //   {
-  //     //Move camera left
-  //     cameraPos.x -= movementSpeed;
-  //     // cout << "move fwd" << " \n";
-  //   }
-  //   if( e.key.keysym.scancode == SDL_SCANCODE_RIGHT )
-  //   {
-  //     cameraPos.x += movementSpeed;
-  //     //Move camera right
-  //     // cout << "move fwd" << " \n";
-  //   }
-  // }
+    if( e.key.keysym.scancode == SDL_SCANCODE_UP )
+    {
+      cameraPos.z += movementSpeed;
+
+    }
+    if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
+    {
+      //Move camera backward
+      cameraPos.z -= movementSpeed;
+
+    }
+    if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
+    {
+      //Move camera left
+      // cameraPos.x -= movementSpeed;
+
+      //Rotate camera anticlockwise around y axis
+      yaw -= 10.0f;// % 360;
+    }
+    if( e.key.keysym.scancode == SDL_SCANCODE_RIGHT )
+    {
+      //Move camera right
+      // cameraPos.x += movementSpeed;
+
+
+      //Rotate camera clockwise around y axis
+      yaw += 10.0f;// % 360;
+    }
+
+    //Quit trigger
+    if( e.type == SDL_QUIT )
+    {
+      quit = true;
+    }
+    if( e.type == SDL_KEYDOWN )
+    {
+      if( e.key.keysym.sym == SDLK_ESCAPE)
+      {
+        quit = true;
+      }
+    }
+  }
 
 }
 
-
+/* * * * * * * * * * * * * * * * * * * * * * *
+ *               Other Functions
+ * * * * * * * * * * * * * * * * * * * * * * */
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -214,14 +277,14 @@ bool ClosestIntersection(
     // if (u < 1 && u > 0) {cout << u << " ";}
 
     //Check if is intersection is within triangle
-    if ( (u >= 0.0f) && (v >= 0.0f) && (u + v <= 1.0f))// && (t > 0.0f) )
+    if ( (u >= 0.0f) && (v >= 0.0f) && (u + v <= 1.0f) && (t > 0.0f) )
     {
       result = true;
       //Compute "intersection" structure
       if (t < minDist)
       {
         //We set w = 1 -- not sure of this
-        closestIntersection.position = vec4(t,u,v,1);
+        closestIntersection.position = vec4(t*dir.x, t*dir.y, t*dir.z,1);
         closestIntersection.distance = t;
         closestIntersection.triangleIndex = i;
 
@@ -230,4 +293,25 @@ bool ClosestIntersection(
     }
   }
   return result;
+}
+
+
+
+vec3 DirectLight( const Intersection& intersection, vec4& lightPos, vec3& lightColour, vector<Triangle>& triangles)
+{
+  // Light colour is P
+  vec3 P = lightColour;
+  // Get normal to triangle
+  vec4 nNorm = normalize(triangles[intersection.triangleIndex].normal);
+  // r is vector from intersection point to light source
+  vec4 r  = lightPos - intersection.position;
+  vec4 rNorm = normalize(r);
+
+  //Compute power per area B
+  float A = 4 * M_PI * ( pow(glm::length(r),2) );
+
+  vec3 B = vec3(P.x/A,P.y/A,P.z/A);
+
+  //Compute power per real surface D
+  vec3 D = B * max(glm::dot (rNorm,nNorm) , 0.0f);
 }
