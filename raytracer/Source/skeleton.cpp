@@ -13,8 +13,8 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 64   //320
-#define SCREEN_HEIGHT 64  //256
+#define SCREEN_WIDTH 320//84   //320
+#define SCREEN_HEIGHT 256//84  //256
 #define FULLSCREEN_MODE true
 
 // struct Triangle
@@ -40,7 +40,7 @@ struct Intersection
  *              FUNCTION DEFS
  * * * * * * * * * * * * * * * * * * * * * * */
 
-void Update(vec4& cameraPos, float& yaw);
+void Update(vec4& cameraPos, float& yaw, vec4& lightPos);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                            float& yaw, vec4& lightPos, vec3& lightColour);
 bool ClosestIntersection(
@@ -48,7 +48,8 @@ bool ClosestIntersection(
   vec4 dir,
   const vector<Triangle>& triangles,
   Intersection& closestIntersection);
-vec3 DirectLight( const Intersection& i, vec4& lightPos, vec3& lightColour, vector<Triangle>& triangles);
+vec3 DirectLight( const Intersection& intersection, vec4& lightPos, 
+                  vec3& lightColour, vector<Triangle>& triangles);
 
 
 
@@ -79,7 +80,7 @@ int main( int argc, char* argv[] )
   while( 1 ) //NoQuitMessageSDL() )
     {
       Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour);
-      Update(cameraPos, yaw);
+      Update(cameraPos, yaw, lightPos);
       SDL_Renderframe(screen);
 
       if(quit){break;}
@@ -114,9 +115,13 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
    vec4 down(    rotMat[1][0], rotMat[1][1], rotMat[1][2], 1 );
    vec4 forward( rotMat[2][0], rotMat[2][1], rotMat[2][2], 1 );
 
+  // FOCAL LENGTH
+  float focalLength = 250.0f;//40.0f;//250.0f;//bigger zooms
 
-  float focalLength = 20.0f;//250.0f;//bigger zooms
+  //Indirect lighting approximation
+  vec3 indirectLight = 0.5f * vec3( 1, 1, 1 );
 
+  //Instantiate closest intersection
   Intersection closestIntersection;
 
   //For each pixel
@@ -131,6 +136,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         focalLength,
         1.0f);
 
+      //Normalise direction of ray
       direction = normalize(direction);
 
       //Compute ClosestIntersection
@@ -146,8 +152,11 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         //Get triangle from triangles
         Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
 
+        //Compute lighting
+        vec3 directLight = DirectLight(closestIntersection, lightPos, lightColour, triangles);
+
         //Get colour of triangle
-        vec3 colour = intersectedTriangle.color;
+        vec3 colour = (directLight + indirectLight) * intersectedTriangle.color;
 
         //set to colour of that triangle
         PutPixelSDL(screen, col, row, colour);
@@ -161,13 +170,13 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
  *                UPDATE
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place updates of parameters here*/
-void Update(vec4& cameraPos, float& yaw)
+void Update(vec4& cameraPos, float& yaw, vec4& lightPos)
 {
-  static int t = SDL_GetTicks();
+  // static int t = SDL_GetTicks();
   /* Compute frame time */
-  int t2 = SDL_GetTicks();
-  float dt = float(t2-t);
-  t = t2;
+  // int t2 = SDL_GetTicks();
+  // float dt = float(t2-t);
+  // t = t2;
 
   float movementSpeed = 0.1f;
 
@@ -180,6 +189,8 @@ void Update(vec4& cameraPos, float& yaw)
 
     if( e.type != SDL_KEYDOWN) {continue;}
 
+
+    //Move camera with arrow keys
     if( e.key.keysym.scancode == SDL_SCANCODE_UP )
     {
       cameraPos.z += movementSpeed;
@@ -207,6 +218,24 @@ void Update(vec4& cameraPos, float& yaw)
 
       //Rotate camera clockwise around y axis
       yaw += 10.0f;// % 360;
+    }
+
+    //Move light with WASD
+    if ( e.key.keysym.scancode == SDL_SCANCODE_W )
+    {
+      lightPos.z += movementSpeed;
+    }
+    if ( e.key.keysym.scancode == SDL_SCANCODE_S )
+    {
+      lightPos.z -= movementSpeed;
+    }
+    if ( e.key.keysym.scancode == SDL_SCANCODE_D )
+    {
+      lightPos.x += movementSpeed;
+    }
+        if ( e.key.keysym.scancode == SDL_SCANCODE_A )
+    {
+      lightPos.x -= movementSpeed;
     }
 
     //Quit trigger
@@ -243,8 +272,6 @@ bool ClosestIntersection(
   {
     Triangle triangle = triangles[i];
 
-    // cout << (decltype(triangle.v0.x)) << " ";
-
     //3D version of dir (ignore last homogenous component)
     vec3 dir3 = vec3(dir.x, dir.y, dir.z);
 
@@ -262,8 +289,7 @@ bool ClosestIntersection(
 
     //A
     mat3 A = mat3( -dir3, e1, e2 );
-    
-    // cout << -dir3.x << " ";
+
 
     //x = (t u v)^T
     //COME BACK HERE todo cramar's rule instead of inbuilt inverse
@@ -273,9 +299,6 @@ bool ClosestIntersection(
     float u = x.y;
     float v = x.z;
 
-    // cout << t << " ";
-    // if (u < 1 && u > 0) {cout << u << " ";}
-
     //Check if is intersection is within triangle
     if ( (u >= 0.0f) && (v >= 0.0f) && (u + v <= 1.0f) && (t > 0.0f) )
     {
@@ -284,7 +307,7 @@ bool ClosestIntersection(
       if (t < minDist)
       {
         //We set w = 1 -- not sure of this
-        closestIntersection.position = vec4(t*dir.x, t*dir.y, t*dir.z,1);
+        closestIntersection.position = vec4(start.x+t*dir.x, start.y+t*dir.y, start.z+t*dir.z, 1);
         closestIntersection.distance = t;
         closestIntersection.triangleIndex = i;
 
@@ -297,7 +320,8 @@ bool ClosestIntersection(
 
 
 
-vec3 DirectLight( const Intersection& intersection, vec4& lightPos, vec3& lightColour, vector<Triangle>& triangles)
+vec3 DirectLight( const Intersection& intersection, vec4& lightPos, 
+                        vec3& lightColour, vector<Triangle>& triangles)
 {
   // Light colour is P
   vec3 P = lightColour;
@@ -314,4 +338,32 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos, vec3& lightC
 
   //Compute power per real surface D
   vec3 D = B * max(glm::dot (rNorm,nNorm) , 0.0f);
+
+
+  //Vector direction from surface to light
+  vec4 lightDir = normalize(lightPos - intersection.position);
+
+  //Distance from surface to light
+  float lightDist = glm::length(lightDir);
+
+  //Intersection of ray cast from surface point to light
+  Intersection lightIntersection;
+
+  //Compute light intersection
+  //Move all points a very small amount along the ray.
+  //This 1e-5f is to account for these floating point errors.
+  bool intersectionFound = ClosestIntersection(intersection.position + 1e-5f * lightDir,lightDir,triangles,lightIntersection);
+
+  //If an intersection is found
+  if (intersectionFound)
+  {
+    //If the ray is stopped short by another intersection
+    if ( glm::length(lightIntersection.position - intersection.position) < lightDist )
+    {
+      //Set to black (i.e., a shadow)
+      D = vec3(0,0,0);
+    }
+  }
+
+  return D;
 }
