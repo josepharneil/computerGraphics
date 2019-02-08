@@ -13,8 +13,8 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 320//84   //320
-#define SCREEN_HEIGHT 256//84  //256
+#define SCREEN_WIDTH 64//320//84   //320
+#define SCREEN_HEIGHT 64//256//84  //256
 #define FULLSCREEN_MODE true
 
 // struct Triangle
@@ -116,7 +116,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
    vec4 forward( rotMat[2][0], rotMat[2][1], rotMat[2][2], 1 );
 
   // FOCAL LENGTH
-  float focalLength = 250.0f;//40.0f;//250.0f;//bigger zooms
+  float focalLength = SCREEN_WIDTH/2;//32.0f;//160.0f;//250.0f;//40.0f;//bigger zooms
 
   //Indirect lighting approximation
   vec3 indirectLight = 0.5f * vec3( 1, 1, 1 );
@@ -135,6 +135,9 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         row-SCREEN_HEIGHT/2,
         focalLength,
         1.0f);
+
+      //multiply direction by rotation matrix
+      //TODO formulate the rotation matrix
 
       //Normalise direction of ray
       direction = normalize(direction);
