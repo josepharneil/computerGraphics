@@ -13,9 +13,25 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 64//320//84   //320
-#define SCREEN_HEIGHT 64//256//84  //256
+#define SCREEN_WIDTH 64//320
+#define SCREEN_HEIGHT 64//256
 #define FULLSCREEN_MODE true
+
+/* * * * * * * * * * * * * * * * * * * * * * *
+ *              FUNCTION DEFS
+ * * * * * * * * * * * * * * * * * * * * * * */
+int t;
+bool quit;
+
+/* * * * * * * * * * * * * * * * * * * * * * *
+ *              Structures
+ * * * * * * * * * * * * * * * * * * * * * * */
+struct Intersection
+{
+    vec4 position;
+    float distance;
+    int triangleIndex;
+};
 
 // struct Triangle
 // {
@@ -25,24 +41,13 @@ using glm::mat4;
 //   vec4 normal;
 //   vec3 color;
 // };
-/* GLOBAL VARIABLES                                                      */
-int t;
-bool quit;
-
-struct Intersection
-{
-    vec4 position;
-    float distance;
-    int triangleIndex;
-};
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              FUNCTION DEFS
  * * * * * * * * * * * * * * * * * * * * * * */
-
-void Update(vec4& cameraPos, float& yaw, vec4& lightPos);
+void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                           float& yaw, vec4& lightPos, vec3& lightColour);
+                           float& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -50,14 +55,14 @@ bool ClosestIntersection(
   Intersection& closestIntersection);
 vec3 DirectLight( const Intersection& intersection, vec4& lightPos, 
                   vec3& lightColour, vector<Triangle>& triangles);
-
-
+mat4 LookAt(const vec3& from, const vec3& to);
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *                MAIN
  * * * * * * * * * * * * * * * * * * * * * * */
 int main( int argc, char* argv[] )
 {
+  #pragma region Main
   //Initially, do not quit
   quit = false;
 
@@ -70,6 +75,7 @@ int main( int argc, char* argv[] )
 
   //Camera control
   vec4 cameraPos(0.0f,0.0f,-3.0f,1.0f);
+  mat4 cameraMatrix;
   float yaw = 0.0f;
 
   //Create light source
@@ -77,15 +83,12 @@ int main( int argc, char* argv[] )
   vec3 lightColour = 14.0f * vec3( 1.0f, 1.0f, 1.0f );
 
   //Update and draw
-  while( 1 ) //NoQuitMessageSDL() )
-    {
-      Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour);
-      Update(cameraPos, yaw, lightPos);
-      SDL_Renderframe(screen);
-
-      if(quit){break;}
-
-    }
+  while( !quit ) //NoQuitMessageSDL() )
+  {
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix);
+    Update(cameraPos, yaw, lightPos, cameraMatrix);
+    SDL_Renderframe(screen);
+  }
 
   //Output
   SDL_SaveImage( screen, "screenshot.bmp" );
@@ -93,6 +96,8 @@ int main( int argc, char* argv[] )
   //Kill screen
   KillSDL(screen);
   return 0;
+
+  #pragma endregion Main
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -100,20 +105,11 @@ int main( int argc, char* argv[] )
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place your drawing here*/
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                          float& yaw, vec4& lightPos, vec3& lightColour)
+                          float& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix)
 {
+  #pragma region Draw
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
-
-  // Create rotation matrix
-  mat4 rotMat( vec4(1.0f,0.0f,0.0f,yaw), 
-               vec4(0.0f,1.0f,0.0f,0.0f),
-               vec4(-yaw,0.0f,1.0f,0.0f),
-               vec4(0.0f,0.0f,0.0f,1.0f) );
-
-   vec4 right(   rotMat[0][0], rotMat[0][1], rotMat[0][2], 1 );
-   vec4 down(    rotMat[1][0], rotMat[1][1], rotMat[1][2], 1 );
-   vec4 forward( rotMat[2][0], rotMat[2][1], rotMat[2][2], 1 );
 
   // FOCAL LENGTH
   float focalLength = SCREEN_WIDTH/2;//32.0f;//160.0f;//250.0f;//40.0f;//bigger zooms
@@ -135,6 +131,14 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         row-SCREEN_HEIGHT/2,
         focalLength,
         1.0f);
+
+      //LookAt
+      vec4 transformedDirection = cameraMatrix * direction;
+      vec4 transformedPostion   = cameraMatrix * cameraPos;
+
+      direction = transformedDirection - transformedPostion;
+
+      // direction = cameraMatrix * direction;
 
       //multiply direction by rotation matrix
       //TODO formulate the rotation matrix
@@ -167,14 +171,16 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
       //ELSE set to black
     }
   }
+  #pragma endregion Draw
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *                UPDATE
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place updates of parameters here*/
-void Update(vec4& cameraPos, float& yaw, vec4& lightPos)
+void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix)
 {
+  #pragma region Update
   // static int t = SDL_GetTicks();
   /* Compute frame time */
   // int t2 = SDL_GetTicks();
@@ -208,19 +214,22 @@ void Update(vec4& cameraPos, float& yaw, vec4& lightPos)
     if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
     {
       //Move camera left
-      // cameraPos.x -= movementSpeed;
-
-      //Rotate camera anticlockwise around y axis
-      yaw -= 10.0f;// % 360;
+      cameraPos.x -= movementSpeed;
     }
     if( e.key.keysym.scancode == SDL_SCANCODE_RIGHT )
     {
       //Move camera right
-      // cameraPos.x += movementSpeed;
-
-
-      //Rotate camera clockwise around y axis
-      yaw += 10.0f;// % 360;
+      cameraPos.x += movementSpeed;
+    }
+    if( e.key.keysym.scancode == SDL_SCANCODE_J )
+    {
+      //Move camera left
+      cameraPos.y -= movementSpeed;
+    }
+    if( e.key.keysym.scancode == SDL_SCANCODE_M )
+    {
+      //Move camera right
+      cameraPos.y += movementSpeed;
     }
 
     //Move light with WASD
@@ -236,7 +245,7 @@ void Update(vec4& cameraPos, float& yaw, vec4& lightPos)
     {
       lightPos.x += movementSpeed;
     }
-        if ( e.key.keysym.scancode == SDL_SCANCODE_A )
+    if ( e.key.keysym.scancode == SDL_SCANCODE_A )
     {
       lightPos.x -= movementSpeed;
     }
@@ -255,17 +264,22 @@ void Update(vec4& cameraPos, float& yaw, vec4& lightPos)
     }
   }
 
+  cameraMatrix = LookAt(vec3(cameraPos.x,cameraPos.y,cameraPos.z), vec3(0,0,0));
+
+  #pragma endregion Update
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
- *               Other Functions
+ *            Other Functions
  * * * * * * * * * * * * * * * * * * * * * * */
+
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
   const vector<Triangle>& triangles,
   Intersection& closestIntersection)
 {
+  #pragma region ClosestIntersection
   //Get closest intersection
   float minDist = numeric_limits<float>::max();
   bool result = false;
@@ -319,6 +333,7 @@ bool ClosestIntersection(
     }
   }
   return result;
+  #pragma endregion closestIntersection
 }
 
 
@@ -326,6 +341,7 @@ bool ClosestIntersection(
 vec3 DirectLight( const Intersection& intersection, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles)
 {
+  #pragma region DirectLight
   // Light colour is P
   vec3 P = lightColour;
   // Get normal to triangle
@@ -369,4 +385,35 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
   }
 
   return D;
+  #pragma endregion DirectLight
+}
+
+
+
+mat4 LookAt(const vec3& from, const vec3& to)
+{
+  #pragma region LookAt
+  vec3 temp = vec3(0,1,0);
+  vec3 forward = normalize(from - to); 
+  vec3 right = glm::cross(normalize(temp), forward); 
+  vec3 up = glm::cross(forward, right); 
+
+  mat4 camToWorld; 
+
+  camToWorld[0][0] = right.x; 
+  camToWorld[0][1] = right.y; 
+  camToWorld[0][2] = right.z; 
+  camToWorld[1][0] = up.x; 
+  camToWorld[1][1] = up.y; 
+  camToWorld[1][2] = up.z; 
+  camToWorld[2][0] = forward.x; 
+  camToWorld[2][1] = forward.y; 
+  camToWorld[2][2] = forward.z; 
+
+  camToWorld[3][0] = from.x; 
+  camToWorld[3][1] = from.y; 
+  camToWorld[3][2] = from.z; 
+
+  return camToWorld; 
+  #pragma endregion LookAt
 }
