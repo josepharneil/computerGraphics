@@ -133,10 +133,10 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         1.0f);
 
       //LookAt
-      vec4 transformedDirection = cameraMatrix * direction;
-      vec4 transformedPostion   = cameraMatrix * cameraPos;
+      // vec4 transformedDirection = cameraMatrix * direction;
+      // vec4 transformedPostion   = cameraMatrix * cameraPos;
 
-      direction = transformedDirection - transformedPostion;
+      // direction = transformedDirection - transformedPostion;
 
       // direction = cameraMatrix * direction;
 

@@ -47,9 +47,10 @@ void VertexShader( const vec4& vertex, ivec2& p, vec4& cameraPos, float& focalLe
 void DrawLineSDL( SDL_Surface* surface, ivec2 a, ivec2 b, vec3 colour );
 void DrawPolygonEdges( screen* screen, const vector<vec4>& vertices, vec4& cameraPos, float& focalLength );
 void DrawPolygon(screen* screen, const vector<vec4>& vertices, vec4& cameraPos, float& focalLength, vec3 colour );
-void ComputePolygonRows(const vector<ivec2>& vertexPixels, vector<ivec2>& leftPixels, vector<ivec2>& rightPixels );
+void ComputePolygonRows(const vector<ivec2>& vertexPixels, vector<ivec2>& leftPixels, vector<ivec2>& rightPixels, screen* screen );
 void FindLine( ivec2 a, ivec2 b, vector<ivec2>& lineToDraw);
 void DrawPolygonRows( screen* screen, const vector<ivec2>& leftPixels, const vector<ivec2>& rightPixels, vec3 colour );
+void TestComputePolygonRows(screen* screen);
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *                  Main
@@ -61,11 +62,20 @@ int main( int argc, char* argv[] )
   quit = false;
 
 
+
+  // return  0;
+
+
   //TEMPORARY PLACE HOLDER
   float yaw = 0;
   
   // Initialise screen
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
+
+
+  TestComputePolygonRows(screen);
+
+  // return 0;
 
   //Instantiate vector of triangles
   vector<Triangle> triangles;
@@ -129,6 +139,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 
 
     //Draw polygon for each triangle
+    // cout << i << "\n";
     DrawPolygon( screen, vertices, cameraPos, focalLength, triangles[i].color );
 
   }
@@ -224,9 +235,6 @@ void Update(vec4& cameraPos, float& yaw)
 }
 
 
-
-
-
 /* * * * * * * * * * * * * * * * * * * * * * *
  *          Other Functions
  * * * * * * * * * * * * * * * * * * * * * * */
@@ -260,7 +268,8 @@ void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result)
   vec2 current( a );
   for( int i=0; i<N; ++i )
   {
-      result[i] = current;
+      result[i].x = round(current.x);
+      result[i].y = round(current.y);
       current += step;
   }
 
@@ -334,6 +343,8 @@ void DrawPolygon( screen* screen, const vector<vec4>& vertices, vec4& cameraPos,
   {
     //Compute projection
     VertexShader( vertices[i], vertexPixels[i], cameraPos, focalLength);
+
+    // cout << vertexPixels[i].x << "," << vertexPixels[i].y << "\n";
   }
 
   //Initialise vectors to store left-most and right-most positions of each row of the projected triangle
@@ -341,7 +352,7 @@ void DrawPolygon( screen* screen, const vector<vec4>& vertices, vec4& cameraPos,
   vector<ivec2> rightPixels;
 
   //Calculates leftPixels and rightPixels
-  ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
+  ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
 
   //Draws the rows
   DrawPolygonRows( screen, leftPixels, rightPixels, colour );
@@ -352,7 +363,7 @@ void DrawPolygon( screen* screen, const vector<vec4>& vertices, vec4& cameraPos,
 void ComputePolygonRows(
     const vector<ivec2>& vertexPixels,
     vector<ivec2>& leftPixels,
-    vector<ivec2>& rightPixels )
+    vector<ivec2>& rightPixels, screen* screen )
 {
   #pragma region ComputePolygonRows
   // 1. Find max and min y-value of the polygon
@@ -360,20 +371,30 @@ void ComputePolygonRows(
   int yMin;
   int yMax;
 
+  // cout << vertexPixels[0].y << " ";
+
+  //Initialise two bounds
+  yMin = +numeric_limits<int>::max();
+  yMax = -numeric_limits<int>::max();
+
   //For each vertex pixel
   for (int i = 0; i < vertexPixels.size(); i++)
   {
-    //Initialise two bounds
-    yMin = +numeric_limits<int>::max();
-    yMax = -numeric_limits<int>::max();
-
     //Update min and max bounds
-    if (vertexPixels[i].y < yMin) { yMin = vertexPixels[i].y; }
+    if (vertexPixels[i].y < yMin) { yMin = vertexPixels[i].y;}
     if (vertexPixels[i].y > yMax) { yMax = vertexPixels[i].y; }
   }
 
   //Number of rows of pixels in the triangle
-  int numberOfRows = (abs(yMax - yMin) + 1);
+  int numberOfRows = (yMax - yMin + 1);
+
+  // cout << numberOfRows << " ";
+
+
+  // cout << yMax << ",";
+  // cout << yMin << " ";
+
+    
 
 
   // 2. Resize leftPixels and rightPixels
@@ -410,20 +431,75 @@ void ComputePolygonRows(
   //For each edge
   for ( int i = 0; i < 3; i++)
   {
-    vector<ivec2> edge = polygonEdges[i];
+    vector<ivec2>& edge = polygonEdges[i];
     //For each pixel on edge
     for (int j = 0; j < edge.size(); j++)
     {
+      //wireframe test
+      // PutPixelSDL(screen, edge[j].x, edge[j].y, vec3(1,1,1));
+
       ivec2 pixel = edge[j];
-      if(pixel.x < leftPixels[pixel.y - yMin].x) { leftPixels[pixel.y - yMin].x = pixel.x; }
-      // if(pixel.x > rightPixels[pixel.y - yMin].x) { rightPixels[pixel.y - yMin].x = pixel.x; }
+
+      // cout << abs(pixel.y - yMin) << " ";
+      // cout << (leftPixels.size()) << " ";
+      int rowIndex = (pixel.y - yMin);
+
+      // cout << rowIndex << " ";
+
+      // int lPixSize = leftPixels.size();
+
+      //If index is greater than vector size
+      // if ( rowIndex > lPixSize )
+      // {
+      //   cout << "Index is too large: ";
+      //   cout << rowIndex << " > " << lPixSize << "\n";
+      // }
+
+      //If index is negative
+      if ( rowIndex < 0 )
+      {
+        // cout << "Index is negative: ";
+
+        // cout << pixel.x << ",";
+        // cout << pixel.y << "\n";
+        
+        // cout << rowIndex << " ";
+        // cout << yMin << " ";
+        // continue;
+      }
+
+
+      // if (lPixSize > 500) {cout << lPixSize << " ";}
+
+      if(pixel.x < leftPixels[rowIndex].x) { leftPixels[rowIndex].x = pixel.x; }
+      if(pixel.x > rightPixels[rowIndex].x) { rightPixels[rowIndex].x = pixel.x; }
     }
   }
 
   #pragma endregion ComputePolygonRows
 }
 
-//FInds a line on screen between a and b of some colour
+void TestComputePolygonRows(screen* screen)
+{
+  vector<ivec2> vertexPixels(3);
+  vertexPixels[0] = ivec2(10, 5);
+  vertexPixels[1] = ivec2( 5,10);
+  vertexPixels[2] = ivec2(15,15);
+  vector<ivec2> leftPixels;
+  vector<ivec2> rightPixels;
+  ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
+  for( int row=0; row<leftPixels.size(); ++row )
+  {
+    cout << "Start: ("
+    << leftPixels[row].x << ","
+    << leftPixels[row].y << "). "
+    << "End: ("
+    << rightPixels[row].x << ","
+    << rightPixels[row].y << "). " << endl;
+  }
+}
+
+//Finds a line on screen between a and b of some colour
 void FindLine( ivec2 a, ivec2 b, vector<ivec2>& lineToDraw)
 {
   #pragma region DrawLineSDL
@@ -449,13 +525,16 @@ void DrawPolygonRows( screen* screen,
 {
   #pragma region DrawPolygonRows
 
-
+  //For each entry in left/right pixels
   for (int i = 0; i < leftPixels.size(); i++)
   {
-    for (int j = leftPixels[i].x; j < rightPixels[i].x; j++)
+    //For each pixel between the leftmost edgepoint and rightmost edgepoint
+    for (int x = leftPixels[i].x; x < rightPixels[i].x; x++)
     {
-      PutPixelSDL(screen, i, j, colour);
+      //Plot
+      PutPixelSDL(screen, x, leftPixels[i].y,colour);
     }
+
   }
 
   #pragma endregion DrawPolygonRows
