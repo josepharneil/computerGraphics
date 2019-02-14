@@ -18,7 +18,7 @@ using glm::vec2;
  * * * * * * * * * * * * * * * * * * * * * * */
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 256
-#define FULLSCREEN_MODE false
+#define FULLSCREEN_MODE true
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Global Variables
@@ -139,7 +139,6 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 
 
     //Draw polygon for each triangle
-    // cout << i << "\n";
     DrawPolygon( screen, vertices, cameraPos, focalLength, triangles[i].color );
 
   }
@@ -158,10 +157,8 @@ void Update(vec4& cameraPos, float& yaw)
 
   SDL_Event e;
 
-  // cout << "ASDFsdf " << "\n";
   while(SDL_PollEvent(&e))
   {
-    // cout << "asdlgjh \n";
 
     if( e.type != SDL_KEYDOWN) {continue;}
 
@@ -344,7 +341,6 @@ void DrawPolygon( screen* screen, const vector<vec4>& vertices, vec4& cameraPos,
     //Compute projection
     VertexShader( vertices[i], vertexPixels[i], cameraPos, focalLength);
 
-    // cout << vertexPixels[i].x << "," << vertexPixels[i].y << "\n";
   }
 
   //Initialise vectors to store left-most and right-most positions of each row of the projected triangle
@@ -371,8 +367,6 @@ void ComputePolygonRows(
   int yMin;
   int yMax;
 
-  // cout << vertexPixels[0].y << " ";
-
   //Initialise two bounds
   yMin = +numeric_limits<int>::max();
   yMax = -numeric_limits<int>::max();
@@ -387,14 +381,6 @@ void ComputePolygonRows(
 
   //Number of rows of pixels in the triangle
   int numberOfRows = (yMax - yMin + 1);
-
-  // cout << numberOfRows << " ";
-
-
-  // cout << yMax << ",";
-  // cout << yMin << " ";
-
-    
 
 
   // 2. Resize leftPixels and rightPixels
@@ -420,9 +406,6 @@ void ComputePolygonRows(
   //    values in rightPixels and leftPixels.
 
   vector<vector<ivec2> > polygonEdges(3);
-  // vector<ivec2> edge0;
-  // vector<ivec2> edge1;
-  // vector<ivec2> edge2;
 
   FindLine(vertexPixels[0], vertexPixels[1], polygonEdges[0]);
   FindLine(vertexPixels[1], vertexPixels[2], polygonEdges[1]);
@@ -440,36 +423,7 @@ void ComputePolygonRows(
 
       ivec2 pixel = edge[j];
 
-      // cout << abs(pixel.y - yMin) << " ";
-      // cout << (leftPixels.size()) << " ";
       int rowIndex = (pixel.y - yMin);
-
-      // cout << rowIndex << " ";
-
-      // int lPixSize = leftPixels.size();
-
-      //If index is greater than vector size
-      // if ( rowIndex > lPixSize )
-      // {
-      //   cout << "Index is too large: ";
-      //   cout << rowIndex << " > " << lPixSize << "\n";
-      // }
-
-      //If index is negative
-      if ( rowIndex < 0 )
-      {
-        // cout << "Index is negative: ";
-
-        // cout << pixel.x << ",";
-        // cout << pixel.y << "\n";
-        
-        // cout << rowIndex << " ";
-        // cout << yMin << " ";
-        // continue;
-      }
-
-
-      // if (lPixSize > 500) {cout << lPixSize << " ";}
 
       if(pixel.x < leftPixels[rowIndex].x) { leftPixels[rowIndex].x = pixel.x; }
       if(pixel.x > rightPixels[rowIndex].x) { rightPixels[rowIndex].x = pixel.x; }
