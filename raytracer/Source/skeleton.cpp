@@ -91,6 +91,7 @@ int main( int argc, char* argv[] )
 
   //Create light source
   vec4 lightPos( 0.0f, -0.5f, -0.7f, 1.0f );
+  vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec3 lightColour = 14.0f * vec3( 1.0f, 1.0f, 1.0f );
 
   //Update and draw
@@ -107,6 +108,8 @@ int main( int argc, char* argv[] )
       triangles[t].v2 = cameraMatrix * originalTriangles[t].v2;
       triangles[t].ComputeNormal();
     }
+
+    lightPos = cameraMatrix * originalLightPos;
 
     SDL_Renderframe(screen);
   }
