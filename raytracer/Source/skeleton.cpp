@@ -97,19 +97,28 @@ int main( int argc, char* argv[] )
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix);
+
     Update(cameraPos, yaw, lightPos, cameraMatrix);
 
     //Rotation
+    mat4 invCameraMatrix = glm::inverse(cameraMatrix);
+    
     for (int t = 0; t < triangles.size(); t++)
     {
-      triangles[t].v0 = cameraMatrix * originalTriangles[t].v0;
-      triangles[t].v1 = cameraMatrix * originalTriangles[t].v1;
-      triangles[t].v2 = cameraMatrix * originalTriangles[t].v2;
+      triangles[t].v0 = invCameraMatrix * originalTriangles[t].v0;
+      triangles[t].v1 = invCameraMatrix * originalTriangles[t].v1;
+      triangles[t].v2 = invCameraMatrix * originalTriangles[t].v2;
       triangles[t].ComputeNormal();
     }
 
-    lightPos = cameraMatrix * originalLightPos;
+    lightPos = invCameraMatrix * originalLightPos;
+
+
+    
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix);
+
+
+
 
     SDL_Renderframe(screen);
   }
@@ -170,7 +179,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
       //Compute ClosestIntersection
       bool intersect = ClosestIntersection(
-        cameraPos,
+        vec4(0,0,0,1),
         direction,
         triangles,
         closestIntersection);
@@ -319,9 +328,9 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix)
   cameraMatrix[2][2] = cos( yaw * PI / 180 );
   cameraMatrix[2][3] = 0;
 
-  cameraMatrix[3][0] = 0;
-  cameraMatrix[3][1] = 0;
-  cameraMatrix[3][2] = 0;
+  cameraMatrix[3][0] = cameraPos.x;
+  cameraMatrix[3][1] = cameraPos.y;
+  cameraMatrix[3][2] = cameraPos.z;
   cameraMatrix[3][3] = 1;
 }
 
