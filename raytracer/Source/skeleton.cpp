@@ -16,6 +16,7 @@ using glm::mat4;
 #define SCREEN_WIDTH 64//320
 #define SCREEN_HEIGHT 64//256
 #define FULLSCREEN_MODE true
+#define PI 3.14159265
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              FUNCTION DEFS
@@ -26,6 +27,7 @@ bool quit;
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Structures
  * * * * * * * * * * * * * * * * * * * * * * */
+#pragma region Structures
 struct Intersection
 {
     vec4 position;
@@ -42,12 +44,16 @@ struct Intersection
 //   vec3 color;
 // };
 
+#pragma endregion Structures
+
+
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              FUNCTION DEFS
  * * * * * * * * * * * * * * * * * * * * * * */
-void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix);
+#pragma region FunctionDefs
+void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                           float& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix);
+                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -57,12 +63,14 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
                   vec3& lightColour, vector<Triangle>& triangles);
 mat4 LookAt(const vec3& from, const vec3& to);
 
+#pragma endregion FunctionDefs
+
+
 /* * * * * * * * * * * * * * * * * * * * * * *
  *                MAIN
  * * * * * * * * * * * * * * * * * * * * * * */
 int main( int argc, char* argv[] )
 {
-  #pragma region Main
   //Initially, do not quit
   quit = false;
 
@@ -73,10 +81,13 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel( triangles );
 
+  vector<Triangle> originalTriangles;
+  LoadTestModel( originalTriangles );
+
   //Camera control
   vec4 cameraPos(0.0f,0.0f,-3.0f,1.0f);
   mat4 cameraMatrix;
-  float yaw = 0.0f;
+  int yaw = 0.0f;
 
   //Create light source
   vec4 lightPos( 0.0f, -0.5f, -0.7f, 1.0f );
@@ -87,6 +98,16 @@ int main( int argc, char* argv[] )
   {
     Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix);
     Update(cameraPos, yaw, lightPos, cameraMatrix);
+
+    //Rotation
+    for (int t = 0; t < triangles.size(); t++)
+    {
+      triangles[t].v0 = cameraMatrix * originalTriangles[t].v0;
+      triangles[t].v1 = cameraMatrix * originalTriangles[t].v1;
+      triangles[t].v2 = cameraMatrix * originalTriangles[t].v2;
+      triangles[t].ComputeNormal();
+    }
+
     SDL_Renderframe(screen);
   }
 
@@ -97,7 +118,6 @@ int main( int argc, char* argv[] )
   KillSDL(screen);
   return 0;
 
-  #pragma endregion Main
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -105,9 +125,8 @@ int main( int argc, char* argv[] )
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place your drawing here*/
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                          float& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix)
+                          int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix)
 {
-  #pragma region Draw
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
@@ -171,16 +190,14 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
       //ELSE set to black
     }
   }
-  #pragma endregion Draw
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *                UPDATE
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place updates of parameters here*/
-void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix)
+void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix)
 {
-  #pragma region Update
   // static int t = SDL_GetTicks();
   /* Compute frame time */
   // int t2 = SDL_GetTicks();
@@ -200,6 +217,8 @@ void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix)
 
 
     //Move camera with arrow keys
+
+    //MOVE FORWARDS/BACKWARDS
     if( e.key.keysym.scancode == SDL_SCANCODE_UP )
     {
       cameraPos.z += movementSpeed;
@@ -211,6 +230,8 @@ void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix)
       cameraPos.z -= movementSpeed;
 
     }
+
+    //MOVE LEFT/RIGHT
     if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
     {
       //Move camera left
@@ -221,6 +242,8 @@ void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix)
       //Move camera right
       cameraPos.x += movementSpeed;
     }
+
+    //MOVE UP/DOWN
     if( e.key.keysym.scancode == SDL_SCANCODE_J )
     {
       //Move camera left
@@ -250,6 +273,19 @@ void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix)
       lightPos.x -= movementSpeed;
     }
 
+
+    //ROTATE AROUND Y-AXIS
+    if ( e.key.keysym.scancode == SDL_SCANCODE_PERIOD )
+    {
+      yaw -= 5;
+      yaw = yaw % 360;
+    }
+    if ( e.key.keysym.scancode == SDL_SCANCODE_COMMA )
+    {
+      yaw += 5;
+      yaw = yaw % 360;
+    }
+
     //Quit trigger
     if( e.type == SDL_QUIT )
     {
@@ -264,9 +300,26 @@ void Update(vec4& cameraPos, float& yaw, vec4& lightPos, mat4& cameraMatrix)
     }
   }
 
-  cameraMatrix = LookAt(vec3(cameraPos.x,cameraPos.y,cameraPos.z), vec3(0,0,0));
+  // cameraMatrix = //LookAt(vec3(cameraPos.x,cameraPos.y,cameraPos.z), vec3(0,0,0));
+  cameraMatrix[0][0] = cos( yaw * PI / 180 );
+  cameraMatrix[0][1] = 0;
+  cameraMatrix[0][2] = sin( yaw * PI / 180 );
+  cameraMatrix[0][3] = 0;
 
-  #pragma endregion Update
+  cameraMatrix[1][0] = 0;
+  cameraMatrix[1][1] = 1;
+  cameraMatrix[1][2] = 0;
+  cameraMatrix[1][3] = 0;
+
+  cameraMatrix[2][0] = -sin( yaw * PI / 180 );
+  cameraMatrix[2][1] = 0;
+  cameraMatrix[2][2] = cos( yaw * PI / 180 );
+  cameraMatrix[2][3] = 0;
+
+  cameraMatrix[3][0] = 0;
+  cameraMatrix[3][1] = 0;
+  cameraMatrix[3][2] = 0;
+  cameraMatrix[3][3] = 1;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -279,7 +332,6 @@ bool ClosestIntersection(
   const vector<Triangle>& triangles,
   Intersection& closestIntersection)
 {
-  #pragma region ClosestIntersection
   //Get closest intersection
   float minDist = numeric_limits<float>::max();
   bool result = false;
@@ -333,7 +385,6 @@ bool ClosestIntersection(
     }
   }
   return result;
-  #pragma endregion closestIntersection
 }
 
 
@@ -341,7 +392,6 @@ bool ClosestIntersection(
 vec3 DirectLight( const Intersection& intersection, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles)
 {
-  #pragma region DirectLight
   // Light colour is P
   vec3 P = lightColour;
   // Get normal to triangle
@@ -385,35 +435,4 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
   }
 
   return D;
-  #pragma endregion DirectLight
-}
-
-
-
-mat4 LookAt(const vec3& from, const vec3& to)
-{
-  #pragma region LookAt
-  vec3 temp = vec3(0,1,0);
-  vec3 forward = normalize(from - to); 
-  vec3 right = glm::cross(normalize(temp), forward); 
-  vec3 up = glm::cross(forward, right); 
-
-  mat4 camToWorld; 
-
-  camToWorld[0][0] = right.x; 
-  camToWorld[0][1] = right.y; 
-  camToWorld[0][2] = right.z; 
-  camToWorld[1][0] = up.x; 
-  camToWorld[1][1] = up.y; 
-  camToWorld[1][2] = up.z; 
-  camToWorld[2][0] = forward.x; 
-  camToWorld[2][1] = forward.y; 
-  camToWorld[2][2] = forward.z; 
-
-  camToWorld[3][0] = from.x; 
-  camToWorld[3][1] = from.y; 
-  camToWorld[3][2] = from.z; 
-
-  return camToWorld; 
-  #pragma endregion LookAt
 }
