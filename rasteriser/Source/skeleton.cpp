@@ -305,8 +305,15 @@ void VertexShader( const vec4& vertex, Pixel& p, vec4& cameraPos, float& focalLe
   int y = (focalLength * (vertexTransformed[1] / vertexTransformed[2])) + (SCREEN_HEIGHT/2);
 
   //float zinv = 1.0f/glm::distance(cameraPos, vertex);
-  float zinv = 1.0f/(vertexTransformed.z);
-  cout << zinv<<"\n";
+  float zinv;
+  if(vertexTransformed.z == 0)
+  {
+    zinv = 0;
+  }
+  else
+  {
+    zinv = 1.0f/(vertexTransformed.z);
+  }
 
   p.x = x;
   p.y = y;
@@ -317,7 +324,6 @@ void VertexShader( const vec4& vertex, Pixel& p, vec4& cameraPos, float& focalLe
 //Could be sped up with Bresenham's line algorithm
 void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result)
 {
-
   int N = result.size();
   vec2 step = vec2(b-a) / float(max(N-1,1));
   vec2 current( a );
@@ -327,8 +333,6 @@ void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result)
       result[i].y = round(current.y);
       current += step;
   }
-
-
 }
 
 void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
@@ -533,12 +537,18 @@ void DrawPolygonRows( screen* screen,
 
     for(int p = 0; p < pixelsBetween.size(); p++)
     {
-      if(pixelsBetween[p].zinv > depthBuffer[pixelsBetween[p].y][pixelsBetween[p].x])
+      if(pixelsBetween[p].y < SCREEN_HEIGHT && pixelsBetween[p].y >= 0 && pixelsBetween[p].x < SCREEN_WIDTH && pixelsBetween[p].x >=0)
       {
-        PutPixelSDL(screen, pixelsBetween[p].x, pixelsBetween[p].y,colour);
+      
+        if(pixelsBetween[p].zinv > depthBuffer[pixelsBetween[p].y][pixelsBetween[p].x])
+        {
+          PutPixelSDL(screen, pixelsBetween[p].x, pixelsBetween[p].y, colour);
 
-        depthBuffer[pixelsBetween[p].y][pixelsBetween[p].x] = pixelsBetween[p].zinv;
+          depthBuffer[pixelsBetween[p].y][pixelsBetween[p].x] = pixelsBetween[p].zinv;
+        }
       }
+      
+      
     }
 
     
