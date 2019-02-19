@@ -4,6 +4,7 @@
 #include "SDLauxiliary.h"
 #include "TestModelH.h"
 #include <stdint.h>
+#include <math.h>
 
 using namespace std;
 using glm::vec3;
@@ -19,6 +20,7 @@ using glm::vec2;
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 256
 #define FULLSCREEN_MODE true
+#define PI 3.14159265
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Global Variables
@@ -49,7 +51,7 @@ struct Pixel
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              FUNCTION DEFS
  * * * * * * * * * * * * * * * * * * * * * * */
-void Update(vec4& cameraPos, float& yaw);
+void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& focalLength);
 void TestComputePolygonRows(screen* screen);
 void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result);
@@ -69,9 +71,6 @@ int main( int argc, char* argv[] )
 {
   //Initially, do not quit
   quit = false;
-
-  //TEMPORARY PLACE HOLDER
-  float yaw = 0;
   
   // Initialise screen
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
@@ -82,15 +81,31 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel( triangles );
 
+  vector<Triangle> originalTriangles;
+  LoadTestModel( originalTriangles );
+
   //Camera position (fixed)
   vec4 cameraPos( 0, 0, -3.001,1 );
+  mat4 cameraMatrix;
+  int yaw = 0;
 
   //Focal length
-  float focalLength = 160;
+  float focalLength = SCREEN_WIDTH/2;
 
   while( !quit ) //NoQuitMessageSDL() )
     {
-      Update(cameraPos, yaw);
+      Update(cameraPos, yaw, cameraMatrix);
+
+      mat4 invCameraMatrix = glm::inverse(cameraMatrix);
+      
+      for (int t = 0; t < triangles.size(); t++)
+      {
+        triangles[t].v0 = invCameraMatrix * originalTriangles[t].v0;
+        triangles[t].v1 = invCameraMatrix * originalTriangles[t].v1;
+        triangles[t].v2 = invCameraMatrix * originalTriangles[t].v2;
+        triangles[t].ComputeNormal();
+      }
+
       Draw(screen, triangles, cameraPos, focalLength);
       SDL_Renderframe(screen);
     }
@@ -159,7 +174,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 /* * * * * * * * * * * * * * * * * * * * * * *
  *                  Update
  * * * * * * * * * * * * * * * * * * * * * * */
-void Update(vec4& cameraPos, float& yaw)
+void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix)
 {
 
   float movementSpeed = 0.1f;
@@ -223,6 +238,18 @@ void Update(vec4& cameraPos, float& yaw)
     //   lightPos.x -= movementSpeed;
     // }
 
+    //ROTATE AROUND Y-AXIS
+    if ( e.key.keysym.scancode == SDL_SCANCODE_PERIOD )
+    {
+      yaw -= 5;
+      yaw = yaw % 360;
+    }
+    if ( e.key.keysym.scancode == SDL_SCANCODE_COMMA )
+    {
+      yaw += 5;
+      yaw = yaw % 360;
+    }
+
     //Quit trigger
     if( e.type == SDL_QUIT )
     {
@@ -236,6 +263,26 @@ void Update(vec4& cameraPos, float& yaw)
       }
     }
   }
+
+  cameraMatrix[0][0] = cos( yaw * PI / 180 );
+  cameraMatrix[0][1] = 0;
+  cameraMatrix[0][2] = sin( yaw * PI / 180 );
+  cameraMatrix[0][3] = 0;
+
+  cameraMatrix[1][0] = 0;
+  cameraMatrix[1][1] = 1;
+  cameraMatrix[1][2] = 0;
+  cameraMatrix[1][3] = 0;
+
+  cameraMatrix[2][0] = -sin( yaw * PI / 180 );
+  cameraMatrix[2][1] = 0;
+  cameraMatrix[2][2] = cos( yaw * PI / 180 );
+  cameraMatrix[2][3] = 0;
+
+  cameraMatrix[3][0] = cameraPos.x;
+  cameraMatrix[3][1] = cameraPos.y;
+  cameraMatrix[3][2] = cameraPos.z;
+  cameraMatrix[3][3] = 1;
 
 }
 
@@ -257,7 +304,9 @@ void VertexShader( const vec4& vertex, Pixel& p, vec4& cameraPos, float& focalLe
   int x = (focalLength * (vertexTransformed[0] / vertexTransformed[2])) + (SCREEN_WIDTH /2);
   int y = (focalLength * (vertexTransformed[1] / vertexTransformed[2])) + (SCREEN_HEIGHT/2);
 
-  float zinv = 1.0f/glm::distance(cameraPos, vertex);
+  //float zinv = 1.0f/glm::distance(cameraPos, vertex);
+  float zinv = 1.0f/(vertexTransformed.z);
+  cout << zinv<<"\n";
 
   p.x = x;
   p.y = y;

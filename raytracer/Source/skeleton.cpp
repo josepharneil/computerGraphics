@@ -87,7 +87,7 @@ int main( int argc, char* argv[] )
   //Camera control
   vec4 cameraPos(0.0f,0.0f,-3.0f,1.0f);
   mat4 cameraMatrix;
-  int yaw = 0.0f;
+  int yaw = 0;
 
   //Create light source
   vec4 lightPos( 0.0f, -0.5f, -0.7f, 1.0f );
@@ -97,7 +97,6 @@ int main( int argc, char* argv[] )
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-
     Update(cameraPos, yaw, lightPos, cameraMatrix);
 
     //Rotation
@@ -143,7 +142,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
   // FOCAL LENGTH
-  float focalLength = SCREEN_WIDTH/2;//32.0f;//160.0f;//250.0f;//40.0f;//bigger zooms
+  float focalLength = SCREEN_WIDTH/2;
 
   //Indirect lighting approximation
   vec3 indirectLight = 0.5f * vec3( 1, 1, 1 );
