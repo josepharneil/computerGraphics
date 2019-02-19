@@ -18,7 +18,7 @@ using glm::vec2;
  * * * * * * * * * * * * * * * * * * * * * * */
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 256
-#define FULLSCREEN_MODE true
+#define FULLSCREEN_MODE false
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Global Variables
@@ -58,7 +58,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 // void ComputePolygonRows(const vector<ivec2>& vertexPixels, vector<ivec2>& leftPixels, vector<ivec2>& rightPixels, screen* screen );
 // void FindLine( ivec2 a, ivec2 b, vector<ivec2>& lineToDraw);
 // void DrawPolygonRows( screen* screen, const vector<ivec2>& leftPixels, const vector<ivec2>& rightPixels, vec3 colour );
-// void TestComputePolygonRows(screen* screen);
+void TestComputePolygonRows(screen* screen);
 void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result);
 
 //pixel versions
@@ -74,7 +74,6 @@ void VertexShader( const vec4& vertex, Pixel& p, vec4& cameraPos, float& focalLe
  * * * * * * * * * * * * * * * * * * * * * * */
 int main( int argc, char* argv[] )
 {
-  #pragma region Main
   //Initially, do not quit
   quit = false;
 
@@ -90,9 +89,9 @@ int main( int argc, char* argv[] )
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 
 
-  // TestComputePolygonRows(screen);
+  TestComputePolygonRows(screen);
 
-  // return 0;
+  return 0;
 
   //Instantiate vector of triangles
   vector<Triangle> triangles;
@@ -115,7 +114,6 @@ int main( int argc, char* argv[] )
 
   KillSDL(screen);
   return 0;
-  #pragma endregion main
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -124,7 +122,6 @@ int main( int argc, char* argv[] )
 /*Place your drawing here*/
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& focalLength)
 {
-  #pragma region Draw
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
@@ -172,7 +169,6 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 
   }
 
-  #pragma endregion Draw
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -180,7 +176,6 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
  * * * * * * * * * * * * * * * * * * * * * * */
 void Update(vec4& cameraPos, float& yaw)
 {
-  #pragma region Update
 
   float movementSpeed = 0.1f;
 
@@ -257,7 +252,6 @@ void Update(vec4& cameraPos, float& yaw)
     }
   }
 
-  #pragma endregion Update
 }
 
 
@@ -287,7 +281,6 @@ void Update(vec4& cameraPos, float& yaw)
 //Projects scene point (triangle vertex) onto image plane
 void VertexShader( const vec4& vertex, Pixel& p, vec4& cameraPos, float& focalLength )
 {
-  #pragma region VertexShader
   //Translates vertex so that camera is at origin, relative to the vertex
   vec4 vertexTransformed = vertex - cameraPos;
 
@@ -304,13 +297,11 @@ void VertexShader( const vec4& vertex, Pixel& p, vec4& cameraPos, float& focalLe
   p.y = y;
   p.zinv = zinv;
 
-  #pragma endregion VertexShader
 }
 
 //Could be sped up with Bresenham's line algorithm
 void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result)
 {
-  #pragma region Interpolate
 
   int N = result.size();
   vec2 step = vec2(b-a) / float(max(N-1,1));
@@ -322,13 +313,11 @@ void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result)
       current += step;
   }
 
-  #pragma endregion Interpolate
+
 }
 
 void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
 {
-  #pragma region InterpolateP
-
   int N = result.size();
   Pixel step;
   step.x = (b.x-a.x) / float(max(N-1,1));
@@ -346,7 +335,6 @@ void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
       current.zinv += step.zinv;
   }
 
-  #pragma endregion InterpolateP
 }
 
 #pragma region wireframe
@@ -406,7 +394,6 @@ void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
 //This draws the polygon from some vertices
 void DrawPolygon(screen* screen, const vector<vec4>& vertices, vec4& cameraPos, float& focalLength, vec3 colour, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH] )
 {
-  #pragma region DrawPolygon
   //Find number of vertices of polygon (3 for triangle)
   int V = vertices.size();
 
@@ -429,11 +416,10 @@ void DrawPolygon(screen* screen, const vector<vec4>& vertices, vec4& cameraPos, 
   ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
 
   //Draws the rows
-  DrawPolygonRows( screen, leftPixels, rightPixels, colour, depthBuffer );
-
-  #pragma endregion DrawPolygon
+  // DrawPolygonRows( screen, leftPixels, rightPixels, colour, depthBuffer );
 }
 
+#pragma region OldComputePolygonRows
 // void ComputePolygonRows(
 //     const vector<ivec2>& vertexPixels,
 //     vector<ivec2>& leftPixels,
@@ -511,6 +497,8 @@ void DrawPolygon(screen* screen, const vector<vec4>& vertices, vec4& cameraPos, 
 //   #pragma endregion ComputePolygonRows
 // }
 
+#pragma endregion OldComputePolygonRows
+
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels, screen* screen )
 {
   // 1. Find max and min y-value of the polygon
@@ -562,6 +550,14 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
   FindLine(vertexPixels[1], vertexPixels[2], polygonEdges[1]);
   FindLine(vertexPixels[2], vertexPixels[0], polygonEdges[2]);
 
+  // vector<Pixel> polygonEdge0;
+  // vector<Pixel> polygonEdge1;
+  // vector<Pixel> polygonEdge2;
+
+  // FindLine(vertexPixels[0], vertexPixels[1], polygonEdge0);
+  // FindLine(vertexPixels[1], vertexPixels[2], polygonEdge1);
+  // FindLine(vertexPixels[2], vertexPixels[0], polygonEdge2);
+
   //For each edge
   for ( int i = 0; i < 3; i++)
   {
@@ -576,31 +572,75 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 
       int rowIndex = (pixel.y - yMin);
 
+      // cout << rowIndex << " ";
+
       if(pixel.x < leftPixels[rowIndex].x) { leftPixels[rowIndex].x = pixel.x; }
       if(pixel.x > rightPixels[rowIndex].x) { rightPixels[rowIndex].x = pixel.x; }
     }
   }
+
+  // for ( int i = 0; i < 3; i++)
+  // {
+  //   vector<Pixel>& edge = polygonEdge0;
+  //   // if (i == 0) {edge = polygonEdge0;}
+  //   if (i == 1) {edge = polygonEdge1;}
+  //   if (i == 2) {edge = polygonEdge2;}
+
+  //   // vector<Pixel>& edge = polygonEdges[i];
+  //   //For each pixel on edge
+  //   for (int j = 0; j < edge.size(); j++)
+  //   {
+  //     //wireframe test
+  //     // PutPixelSDL(screen, edge[j].x, edge[j].y, vec3(1,1,1));
+
+  //     Pixel pixel = edge[j];
+
+  //     int rowIndex = (pixel.y - yMin);
+
+  //     cout << rowIndex << " ";
+
+  //     if(pixel.x < leftPixels[rowIndex].x) { leftPixels[rowIndex].x = pixel.x; }
+  //     if(pixel.x > rightPixels[rowIndex].x) { rightPixels[rowIndex].x = pixel.x; }
+  //   }
+  // }
+
 }
 
-// void TestComputePolygonRows(screen* screen)
-// {
-//   vector<ivec2> vertexPixels(3);
-//   vertexPixels[0] = ivec2(10, 5);
-//   vertexPixels[1] = ivec2( 5,10);
-//   vertexPixels[2] = ivec2(15,15);
-//   vector<ivec2> leftPixels;
-//   vector<ivec2> rightPixels;
-//   ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
-//   for( int row=0; row<leftPixels.size(); ++row )
-//   {
-//     cout << "Start: ("
-//     << leftPixels[row].x << ","
-//     << leftPixels[row].y << "). "
-//     << "End: ("
-//     << rightPixels[row].x << ","
-//     << rightPixels[row].y << "). " << endl;
-//   }
-// }
+void TestComputePolygonRows(screen* screen)
+{
+  vector<Pixel> vertexPixels(3);
+
+  vertexPixels[0].x = 10;
+  vertexPixels[0].y = 5;
+  vertexPixels[0].zinv = 0.0f;
+
+  vertexPixels[1].x = 5;
+  vertexPixels[1].y = 10;
+  vertexPixels[1].zinv = 0.0f;
+
+  vertexPixels[1].x = 5;
+  vertexPixels[1].y = 10;
+  vertexPixels[1].zinv = 0.0f;
+
+  // vertexPixels[2] = {15,15, 0.0f};
+  vertexPixels[2].x = 15;
+  vertexPixels[2].y = 15;
+  vertexPixels[2].zinv = 0.0f;
+
+  vector<Pixel> leftPixels;
+  vector<Pixel> rightPixels;
+  ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
+  
+  for( int row=0; row<leftPixels.size(); ++row )
+  {
+    cout << "Start: ("
+    << leftPixels[row].x << ","
+    << leftPixels[row].y << "). "
+    << "End: ("
+    << rightPixels[row].x << ","
+    << rightPixels[row].y << "). " << endl;
+  }
+}
 
 // //Finds a line on screen between a and b of some colour
 // void FindLine( ivec2 a, ivec2 b, vector<ivec2>& lineToDraw)
@@ -624,16 +664,17 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 //Finds a line on screen between a and b of some colour
 void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
 {
-  #pragma region DrawLineSDL
   // Find difference between two vertices.
   Pixel delta;
   delta.x = glm::abs( a.x - b.x );
   delta.y = glm::abs( a.y - b.y );
-  delta.zinv = glm::abs( a.zinv - b.zinv );
+  delta.zinv = glm::abs( a.zinv - b.zinv );//not used
    
 
   //Find number of pixels needed.
   int numberOfPixels = glm::max( delta.x, delta.y ) + 1;
+
+  // cout << numberOfPixels << " ";
 
   //Resize lineToDraw for interpolations
   lineToDraw.resize(numberOfPixels);
@@ -641,7 +682,6 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
   //Interpolate between two vertices
   InterpolatePixel( a, b, lineToDraw );
 
-  #pragma endregion Interpolate
 }
 
 // void DrawPolygonRows( screen* screen, 
@@ -671,19 +711,38 @@ void DrawPolygonRows( screen* screen,
                       const vector<Pixel>& rightPixels, 
                       vec3 colour, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH])
 {
-  #pragma region DrawPolygonRows
-
   //For each entry in left/right pixels
   for (int i = 0; i < leftPixels.size(); i++)
   {
-    //For each pixel between the leftmost edgepoint and rightmost edgepoint
-    for (int x = leftPixels[i].x; x < rightPixels[i].x; x++)
-    {
-      //Plot
-      PutPixelSDL(screen, x, leftPixels[i].y,colour);
-    }
+    int numberOfPixelsBetween = rightPixels[i].x - leftPixels[i].x + 1;
+    vector<Pixel> pixelsBetween(numberOfPixelsBetween);
+    InterpolatePixel(leftPixels[i], rightPixels[i], pixelsBetween);
 
+    for(int p = 0; p < numberOfPixelsBetween; p++)
+    {
+      if(pixelsBetween[p].zinv > depthBuffer[pixelsBetween[p].y][pixelsBetween[p].x])
+      {
+        PutPixelSDL(screen, pixelsBetween[p].x, pixelsBetween[p].y,colour);
+
+        depthBuffer[pixelsBetween[p].y][pixelsBetween[p].x] = pixelsBetween[p].zinv;
+      }
+    }
   }
 
-  #pragma endregion DrawPolygonRows
+
+
+
+
+
+
+  // //For each entry in left/right pixels
+  // for (int i = 0; i < leftPixels.size(); i++)
+  // {
+  //   //For each pixel between the leftmost edgepoint and rightmost edgepoint
+  //   for (int x = leftPixels[i].x; x < rightPixels[i].x; x++)
+  //   {
+  //     //Plot
+  //     PutPixelSDL(screen, x, leftPixels[i].y,colour);
+  //   }
+  // }
 }
