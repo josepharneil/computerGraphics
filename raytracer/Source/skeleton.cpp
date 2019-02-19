@@ -13,8 +13,8 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 64//320
-#define SCREEN_HEIGHT 64//256
+#define SCREEN_WIDTH 320
+#define SCREEN_HEIGHT 256
 #define FULLSCREEN_MODE true
 #define PI 3.14159265
 

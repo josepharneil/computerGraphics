@@ -18,7 +18,7 @@ using glm::vec2;
  * * * * * * * * * * * * * * * * * * * * * * */
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 256
-#define FULLSCREEN_MODE false
+#define FULLSCREEN_MODE true
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Global Variables
@@ -88,10 +88,9 @@ int main( int argc, char* argv[] )
   // Initialise screen
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 
-
   TestComputePolygonRows(screen);
 
-  return 0;
+  // return 0;
 
   //Instantiate vector of triangles
   vector<Triangle> triangles;
@@ -291,7 +290,8 @@ void VertexShader( const vec4& vertex, Pixel& p, vec4& cameraPos, float& focalLe
   int x = (focalLength * (vertexTransformed[0] / vertexTransformed[2])) + (SCREEN_WIDTH /2);
   int y = (focalLength * (vertexTransformed[1] / vertexTransformed[2])) + (SCREEN_HEIGHT/2);
 
-  float zinv = 1/vertex.z;
+  float zinv = 1.0f/glm::distance(cameraPos, vertex);
+  // cout << zinv << "\n";
 
   p.x = x;
   p.y = y;
@@ -319,21 +319,28 @@ void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result)
 void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
 {
   int N = result.size();
-  Pixel step;
+  vec3 step;
   step.x = (b.x-a.x) / float(max(N-1,1));
-  step.y = (b.zinv-a.zinv) / float(max(N-1,1));
-  step.zinv = (b.zinv-a.zinv) / float(max(N-1,1));
+  step.y = (b.y-a.y) / float(max(N-1,1));
+  step.z = (b.zinv-a.zinv) / float(max(N-1,1));
 
 
-  Pixel current( a );
+  vec3 current( float(a.x), float(a.y), a.zinv );
   for( int i=0; i<N; ++i )
   {
-      result[i].x = round(current.x);
-      result[i].y = round(current.y);
-      current.x += step.x;
-      current.y += step.y;
-      current.zinv += step.zinv;
+    result[i].x = round(current.x);
+    result[i].y = round(current.y);
+    result[i].zinv = current.z;
+    // cout << result[i].zinv <<"\n";
+    // cout << result[i].zinv << "\n";
+    // current.x += step.x;
+    // current.y += step.y;
+    // current.zinv += step.zinv;
+
+    current += step;
+    // cout << "x:"
   }
+   //cout << "zinv: " << current.zinv << "\n"; 
 
 }
 
@@ -416,7 +423,7 @@ void DrawPolygon(screen* screen, const vector<vec4>& vertices, vec4& cameraPos, 
   ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
 
   //Draws the rows
-  // DrawPolygonRows( screen, leftPixels, rightPixels, colour, depthBuffer );
+  DrawPolygonRows( screen, leftPixels, rightPixels, colour, depthBuffer );
 }
 
 #pragma region OldComputePolygonRows
@@ -574,8 +581,8 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 
       // cout << rowIndex << " ";
 
-      if(pixel.x < leftPixels[rowIndex].x) { leftPixels[rowIndex].x = pixel.x; }
-      if(pixel.x > rightPixels[rowIndex].x) { rightPixels[rowIndex].x = pixel.x; }
+      if(pixel.x < leftPixels[rowIndex].x) { leftPixels[rowIndex].x = pixel.x;leftPixels[rowIndex].zinv = pixel.zinv; }
+      if(pixel.x > rightPixels[rowIndex].x) { rightPixels[rowIndex].x = pixel.x; rightPixels[rowIndex].zinv = pixel.zinv;}
     }
   }
 
@@ -667,20 +674,26 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
   // Find difference between two vertices.
   Pixel delta;
   delta.x = glm::abs( a.x - b.x );
+
+  // cout << a.x << " - " << b.x << " = " << delta.x << "\n";
   delta.y = glm::abs( a.y - b.y );
   delta.zinv = glm::abs( a.zinv - b.zinv );//not used
    
 
   //Find number of pixels needed.
   int numberOfPixels = glm::max( delta.x, delta.y ) + 1;
+  // cout << numberOfPixels << "\n";
 
   // cout << numberOfPixels << " ";
 
   //Resize lineToDraw for interpolations
   lineToDraw.resize(numberOfPixels);
+  // cout << lineToDraw.size() << "\n";
   
   //Interpolate between two vertices
   InterpolatePixel( a, b, lineToDraw );
+  // cout << "lineToDraw.x: " << lineToDraw.x << "\n";
+  
 
 }
 
@@ -711,26 +724,62 @@ void DrawPolygonRows( screen* screen,
                       const vector<Pixel>& rightPixels, 
                       vec3 colour, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH])
 {
+
+  // cout << "DepthBuffer size:" << SCREEN_HEIGHT << "," << SCREEN_WIDTH << "\n";
+
+  vector<Pixel> pixelsBetween(SCREEN_HEIGHT);
+
   //For each entry in left/right pixels
   for (int i = 0; i < leftPixels.size(); i++)
   {
     int numberOfPixelsBetween = rightPixels[i].x - leftPixels[i].x + 1;
-    vector<Pixel> pixelsBetween(numberOfPixelsBetween);
+    // if ( true)//numberOfPixelsBetween < 1)
+    // {
+    //   // cout << pixelsBetween.size() << " ";
+    // }
+    // vector<Pixel> pixelsBetween(numberOfPixelsBetween);
+    pixelsBetween.resize(numberOfPixelsBetween);
     InterpolatePixel(leftPixels[i], rightPixels[i], pixelsBetween);
 
-    for(int p = 0; p < numberOfPixelsBetween; p++)
+    for(int p = 0; p < pixelsBetween.size(); p++)
     {
+      // cout << "(" << pixelsBetween[p].x << "," << pixelsBetween[p].y << "," << pixelsBetween[p].zinv << ") ";
+
+      // if (p >= pixelsBetween.size())
+      // {
+      //   cout << p << " >= " << pixelsBetween.size() << "\n";
+      // }
+
+      // if(pixelsBetween[p].y >= SCREEN_HEIGHT)
+      // {
+      //   cout << "y: " << pixelsBetween[p].y << " > =" << SCREEN_HEIGHT <<"\n";
+      // }
+
+      // if(pixelsBetween[p].x >= SCREEN_WIDTH)
+      // {
+      //   cout << "x: " << pixelsBetween[p].x << " >= " << SCREEN_WIDTH <<"\n";
+      // }
+
+      // if(pixelsBetween[p].zinv >= 0)
+      // {
+      //   cout << "zinv: " << pixelsBetween[p].zinv << " >= " << 0 << "\n";
+      // }
+
+      //cout << pixelsBetween[p].zinv << "\n";
+
+      //cout << "zinv: " << pixelsBetween[p].zinv << "\n";
+
       if(pixelsBetween[p].zinv > depthBuffer[pixelsBetween[p].y][pixelsBetween[p].x])
       {
+        // cout << "ENTERED!" << "\n";
         PutPixelSDL(screen, pixelsBetween[p].x, pixelsBetween[p].y,colour);
 
         depthBuffer[pixelsBetween[p].y][pixelsBetween[p].x] = pixelsBetween[p].zinv;
       }
     }
+
+    
   }
-
-
-
 
 
 
