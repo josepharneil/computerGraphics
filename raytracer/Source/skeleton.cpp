@@ -97,7 +97,7 @@ int main( int argc, char* argv[] )
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    Update(cameraPos, yaw, lightPos, cameraMatrix);
+    Update(cameraPos, yaw, originalLightPos, cameraMatrix);
 
     //Rotation
     mat4 invCameraMatrix = glm::inverse(cameraMatrix);
@@ -111,7 +111,6 @@ int main( int argc, char* argv[] )
     }
 
     lightPos = invCameraMatrix * originalLightPos;
-
 
     
     Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix);
