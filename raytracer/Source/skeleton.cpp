@@ -379,7 +379,7 @@ bool ClosestIntersection(
     float v = x.z;
 
     //Check if is intersection is within triangle
-    if ( (u >= 0.0f) && (v >= 0.0f) && (u + v <= 1.0f) && (t > 0.0f) )
+    if ( (u >= 0.0f) && (v >= 0.0f) && (u + v <= 1.001f) && (t > 0.0f) )
     {
       result = true;
       //Compute "intersection" structure
@@ -433,8 +433,11 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
   //This 1e-5f is to account for these floating point errors.
   bool intersectionFound = ClosestIntersection(intersection.position + 1e-5f * lightDir,lightDir,triangles,lightIntersection);
 
+  
   //If an intersection is found
-  if (intersectionFound)
+  //2nd part of conjunction is to deal with the light being inside of the wall 
+  //(when the light rays are parallel to the wall, i.e., perpendicular to the normal))
+  if (intersectionFound && ( glm::dot( nNorm, (intersection.position - lightPos)) == 0 ) )
   {
     //If the ray is stopped short by another intersection
     if ( glm::length(lightIntersection.position - intersection.position) < lightDist )

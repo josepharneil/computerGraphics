@@ -17,9 +17,9 @@ using glm::vec2;
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Defines
  * * * * * * * * * * * * * * * * * * * * * * */
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 256
-#define FULLSCREEN_MODE false
+#define SCREEN_WIDTH 620
+#define SCREEN_HEIGHT 512//256
+#define FULLSCREEN_MODE true
 #define PI 3.14159265
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -103,7 +103,6 @@ int main( int argc, char* argv[] )
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec3 lightPower = 30.0f*vec3( 1, 1, 1 );
   vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
-
 
   //Focal length
   float focalLength = SCREEN_WIDTH/2;
@@ -297,7 +296,7 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
 void VertexShader( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength)
 {
   //Translates vertex so that camera is at origin, relative to the vertex
-  vec4 vertexTransformed = vertex.position - cameraPos;
+  vec4 vertexTransformed = vertex.position; //- cameraPos;
 
   //vertex[0] is X
   //vertex[1] is Y
