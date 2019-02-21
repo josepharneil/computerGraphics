@@ -73,6 +73,7 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
 void VertexShader( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength );
 void PixelShader(const Pixel& p, screen* s, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea );
 
+//
 /* * * * * * * * * * * * * * * * * * * * * * *
  *                  Main
  * * * * * * * * * * * * * * * * * * * * * * */
