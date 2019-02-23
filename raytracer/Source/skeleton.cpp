@@ -43,7 +43,6 @@ struct Intersection
 //   vec4 normal;
 //   vec3 color;
 // };
-
 #pragma endregion Structures
 
 
@@ -282,7 +281,14 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix)
     {
       lightPos.x -= movementSpeed;
     }
-
+    if ( e.key.keysym.scancode == SDL_SCANCODE_R )
+    {
+      lightPos.y -= movementSpeed;
+    }
+    if ( e.key.keysym.scancode == SDL_SCANCODE_F )
+    {
+      lightPos.y += movementSpeed;
+    }
 
     //ROTATE AROUND Y-AXIS
     if ( e.key.keysym.scancode == SDL_SCANCODE_PERIOD )
@@ -398,7 +404,6 @@ bool ClosestIntersection(
 }
 
 
-
 vec3 DirectLight( const Intersection& intersection, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles)
 {
@@ -431,13 +436,12 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
   //Compute light intersection
   //Move all points a very small amount along the ray.
   //This 1e-5f is to account for these floating point errors.
-  bool intersectionFound = ClosestIntersection(intersection.position + 1e-5f * lightDir,lightDir,triangles,lightIntersection);
-
+  bool intersectionFound = ClosestIntersection(intersection.position + 1e-4f * lightDir,lightDir,triangles,lightIntersection);
   
   //If an intersection is found
   //2nd part of conjunction is to deal with the light being inside of the wall 
   //(when the light rays are parallel to the wall, i.e., perpendicular to the normal))
-  if (intersectionFound && ( glm::dot( nNorm, (intersection.position - lightPos)) == 0 ) )
+  if (intersectionFound && ( abs(glm::dot( nNorm, (intersection.position - lightPos))) >= 0.5 ) )
   {
     //If the ray is stopped short by another intersection
     if ( glm::length(lightIntersection.position - intersection.position) < lightDist )
