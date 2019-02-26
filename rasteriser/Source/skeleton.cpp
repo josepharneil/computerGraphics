@@ -240,6 +240,14 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
     {
       lightPos.x -= movementSpeed;
     }
+    if ( e.key.keysym.scancode == SDL_SCANCODE_R )
+    {
+      lightPos.y -= movementSpeed;
+    }
+    if ( e.key.keysym.scancode == SDL_SCANCODE_F )
+    {
+      lightPos.y += movementSpeed;
+    }
 
     //ROTATE AROUND Y-AXIS
     if ( e.key.keysym.scancode == SDL_SCANCODE_PERIOD )
