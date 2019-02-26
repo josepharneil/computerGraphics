@@ -425,7 +425,9 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
 
 
   //Vector direction from surface to light
-  vec4 lightDir = normalize(lightPos - intersection.position);
+  vec4 lightDir = lightPos - intersection.position;
+
+  vec4 lightDirNorm = normalize(lightPos - intersection.position);
 
   //Distance from surface to light
   float lightDist = glm::length(lightDir);
@@ -436,12 +438,12 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
   //Compute light intersection
   //Move all points a very small amount along the ray.
   //This 1e-5f is to account for these floating point errors.
-  bool intersectionFound = ClosestIntersection(intersection.position + 1e-4f * lightDir,lightDir,triangles,lightIntersection);
+  bool intersectionFound = ClosestIntersection(intersection.position + 1e-4f * lightDirNorm,lightDirNorm,triangles,lightIntersection);
   
   //If an intersection is found
   //2nd part of conjunction is to deal with the light being inside of the wall 
   //(when the light rays are parallel to the wall, i.e., perpendicular to the normal))
-  if (intersectionFound && ( abs(glm::dot( nNorm, (intersection.position - lightPos))) >= 0.5 ) )
+  if (intersectionFound && ( abs(glm::dot( nNorm, (intersection.position - lightPos))) >= 0 ) )
   {
     //If the ray is stopped short by another intersection
     if ( glm::length(lightIntersection.position - intersection.position) < lightDist )
