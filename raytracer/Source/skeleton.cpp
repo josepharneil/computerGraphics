@@ -419,7 +419,7 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
   float A = 4 * M_PI * ( pow(glm::length(r),2) );
 
   vec3 B = vec3(P.x/A,P.y/A,P.z/A);
-//
+
   //Compute power per real surface D
   vec3 D = B * max(glm::dot (rNorm,nNorm) , 0.0f);
 
