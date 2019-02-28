@@ -190,16 +190,20 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
       //Array of subpixel directions
       vec4 directions[4];
 
+      //Initialise random
       int colRand;
       int rowRand;
 
       float colRandF;
       float rowRandF;
 
-      int seed = ceil(row/(col+1) + row + col);
+      //Imagine screen is flattened to 1D array
+      //Seed is the pixel number
+      int seed = (row * SCREEN_WIDTH) + col;
 
       srand(seed);
       
+      //Get random numbers
       colRand = rand() % 1001;
       rowRand = rand() % 1001;
 
