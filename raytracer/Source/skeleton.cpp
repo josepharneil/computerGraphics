@@ -13,16 +13,40 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 256
+#define SCREEN_WIDTH 640
+#define SCREEN_HEIGHT 512
 #define FULLSCREEN_MODE true
 #define PI 3.14159265
 
 /* * * * * * * * * * * * * * * * * * * * * * *
- *              FUNCTION DEFS
+ *              Global Variables
  * * * * * * * * * * * * * * * * * * * * * * */
 int t;
 bool quit;
+
+
+
+//Print vec4s
+std::ostream &operator<<( std::ostream &os, vec4 const &v )
+{
+  return os << "(" << v.x << ", " << v.y << ", " << v.z << ", " << v.w
+	          << ")";
+}
+
+std::ostream &operator<<( std::ostream &os, vec3 const &v )
+{
+  return os << "(" << v.x << ", " << v.y << ", " << v.z << ")";
+}
+
+std::ostream &operator<<( std::ostream &os, mat4 const &m )
+{
+	glm::mat4 mt = transpose( m );
+  return os << mt[ 0 ] << endl
+	          << mt[ 1 ] << endl
+	          << mt[ 2 ] << endl
+	          << mt[ 3 ];
+}
+
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Structures
@@ -146,57 +170,177 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
   vec3 indirectLight = 0.5f * vec3( 1, 1, 1 );
 
   //Instantiate closest intersection
-  Intersection closestIntersection;
+  // Intersection closestIntersection;
 
   //For each pixel
   for (int row = 0; row < SCREEN_HEIGHT; row++)
   {
     for (int col = 0; col < SCREEN_WIDTH; col++)
     {
-      //Compute ray direction
-      vec4 direction = vec4(
-        col-SCREEN_WIDTH/2,
-        row-SCREEN_HEIGHT/2,
+      /* * * * * * * * * * * * * * * * * * *
+      * 	       Anti-Aliasing
+      * * * * * * * * * * * * * * * * * * */
+
+      //Array of 4 closests intersections
+      Intersection closestIntersections[4];
+      //Array of whether intersection has occurred
+      bool isIntersections[4];
+      //Array of subpixel directions
+      vec4 directions[4];
+
+      int colRand;
+      int rowRand;
+
+      float colRandF;
+      float rowRandF;
+      
+      // colRand = rand() % 1001;
+      // rowRand = rand() % 1001;
+
+      colRand = 500;
+      rowRand = 500;
+
+      // cout << (colRand/2000) << "\n";
+      // cout << (rowRand/2000) << "\n";
+
+      colRandF = float(colRand) / 2000.0f;
+      rowRandF = float(rowRand) / 2000.0f;
+
+      //Top-left subpixel
+      directions[0] = normalize(vec4(
+        col-SCREEN_WIDTH/2 - (colRandF),
+        row-SCREEN_HEIGHT/2 - (rowRandF),
         focalLength,
-        1.0f);
+        1.0f));
 
-      //LookAt
-      // vec4 transformedDirection = cameraMatrix * direction;
-      // vec4 transformedPostion   = cameraMatrix * cameraPos;
+      // colRand = rand() % 1001;
+      // rowRand = rand() % 1001;
 
-      // direction = transformedDirection - transformedPostion;
+      colRand = 500;
+      rowRand = 500;
 
-      // direction = cameraMatrix * direction;
+      colRandF = float(colRand) / 2000.0f;
+      rowRandF = float(rowRand) / 2000.0f;
 
-      //multiply direction by rotation matrix
-      //TODO formulate the rotation matrix
+      //Top-right subpixel
+      directions[1] = normalize(vec4(
+        col-SCREEN_WIDTH/2 - (colRandF),
+        row-SCREEN_HEIGHT/2 + (rowRandF),
+        focalLength,
+        1.0f));
 
-      //Normalise direction of ray
-      direction = normalize(direction);
+      // colRand = rand() % 1001;
+      // rowRand = rand() % 1001;
 
-      //Compute ClosestIntersection
-      bool intersect = ClosestIntersection(
-        vec4(0,0,0,1),
-        direction,
-        triangles,
-        closestIntersection);
+      colRand = 500;
+      rowRand = 500;
 
-      //If an intersection occurs
-      if (intersect)
+      colRandF = float(colRand) / 2000.0f;
+      rowRandF = float(rowRand) / 2000.0f;
+
+      //bottom-left subpixel
+      directions[2] = normalize(vec4(
+        col-SCREEN_WIDTH/2 + (colRandF),
+        row-SCREEN_HEIGHT/2 - (rowRandF),
+        focalLength,
+        1.0f));
+
+      // colRand = rand() % 1001;
+      // rowRand = rand() % 1001;
+
+      colRand = 500;
+      rowRand = 500;
+
+      colRandF = float(colRand) / 2000.0f;
+      rowRandF = float(rowRand) / 2000.0f;
+
+      //bottom-right subpixel
+      directions[3] = normalize(vec4(
+        col-SCREEN_WIDTH/2 + (colRandF),
+        row-SCREEN_HEIGHT/2 + (rowRandF),
+        focalLength,
+        1.0f));
+
+      
+
+      //For each sub-pixel
+      for (int i = 0; i < 4; i++)
       {
-        //Get triangle from triangles
-        Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
+        // cout << directions[i] << "\n";
+        // cout << directions[i].x << " " << directions[i].y << " " << directions[i].z << " " << directions[i].w << "\n";
+        // //Compute ray direction
+        // vec4 direction = vec4(
+        //   col-SCREEN_WIDTH/2 - (1/4),
+        //   row-SCREEN_HEIGHT/2 - (1/4),
+        //   focalLength,
+        //   1.0f);
 
-        //Compute lighting
-        vec3 directLight = DirectLight(closestIntersection, lightPos, lightColour, triangles);
+        //direction = normalize(direction);
 
-        //Get colour of triangle
-        vec3 colour = (directLight + indirectLight) * intersectedTriangle.color;
+        //LookAt
+        // vec4 transformedDirection = cameraMatrix * direction;
+        // vec4 transformedPostion   = cameraMatrix * cameraPos;
 
-        //set to colour of that triangle
-        PutPixelSDL(screen, col, row, colour);
+        // direction = transformedDirection - transformedPostion;
+
+        // direction = cameraMatrix * direction;
+
+        //multiply direction by rotation matrix
+        //TODO formulate the rotation matrix
+
+        //Normalise direction of ray
+        // direction = normalize(direction);
+
+        //Compute ClosestIntersection
+        isIntersections[i] = ClosestIntersection(
+          vec4(0,0,0,1),
+          directions[i],
+          triangles,
+          closestIntersections[i]);
       }
-      //ELSE set to black
+
+      vec3 colourTotal;
+
+      //For each subpixel
+      for (int i = 0; i < 4; i++)
+      {
+        //If there is an intersection
+        if (isIntersections[i])
+        {
+          //Get triangle from triangles
+          Triangle intersectedTriangle = triangles[closestIntersections[i].triangleIndex];
+
+          //Compute lighting
+          vec3 directLight = DirectLight(closestIntersections[i], lightPos, lightColour, triangles);
+
+          //Get colour of triangle
+          vec3 colour = (directLight + indirectLight) * intersectedTriangle.color;
+
+          //Running colour total over whole pixel
+          colourTotal += colour;
+        }
+      }
+
+      colourTotal = colourTotal/4.0f;
+
+      //set to colour of that triangle
+      PutPixelSDL(screen, col, row, colourTotal);
+      //If an intersection occurs
+      // if (intersect)
+      // {
+      //   //Get triangle from triangles
+      //   Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
+
+      //   //Compute lighting
+      //   vec3 directLight = DirectLight(closestIntersection, lightPos, lightColour, triangles);
+
+      //   //Get colour of triangle
+      //   vec3 colour = (directLight + indirectLight) * intersectedTriangle.color;
+
+      //   //set to colour of that triangle
+      //   PutPixelSDL(screen, col, row, colour);
+      // }
+      // //ELSE set to black
     }
   }
 }
@@ -419,7 +563,7 @@ vec3 DirectLight( const Intersection& intersection, vec4& lightPos,
   float A = 4 * M_PI * ( pow(glm::length(r),2) );
 
   vec3 B = vec3(P.x/A,P.y/A,P.z/A);
-
+ 
   //Compute power per real surface D
   vec3 D = B * max(glm::dot (rNorm,nNorm) , 0.0f);
 
