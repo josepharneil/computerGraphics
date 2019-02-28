@@ -13,8 +13,8 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 1024
+#define SCREEN_WIDTH 500
+#define SCREEN_HEIGHT 500
 #define FULLSCREEN_MODE true
 #define PI 3.14159265
 
@@ -25,7 +25,9 @@ int t;
 bool quit;
 
 
-
+/* * * * * * * * * * * * * * * * * * *
+* 	          Overrides
+* * * * * * * * * * * * * * * * * * */
 //Print vec4s
 std::ostream &operator<<( std::ostream &os, vec4 const &v )
 {
@@ -76,7 +78,7 @@ struct Intersection
 #pragma region FunctionDefs
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,vector<float> AANoiseVectorArray[SCREEN_HEIGHT][SCREEN_WIDTH]);
+                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -117,30 +119,6 @@ int main( int argc, char* argv[] )
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec3 lightColour = 14.0f * vec3( 1.0f, 1.0f, 1.0f );
 
-
-  //Anti-Aliasing random number array
-  vector<float> AANoiseVectorArray[SCREEN_HEIGHT][SCREEN_WIDTH];
-
-  int randomNum;
-  float randomNumF;
-
-  //For each pixel
-  for(int row = 0; row < SCREEN_HEIGHT; row++)
-  {
-    for(int col = 0; col < SCREEN_WIDTH; col++)
-    {
-      for(int i = 0; i < 8; i++)
-      {
-        randomNum = rand() % 1001;
-        randomNumF = float(randomNum) / 2000.0f;
-
-        // cout << "(" << row << "," << col << "," << i << ")" << "\n";
-        AANoiseVectorArray[row][col].push_back(randomNumF);
-        
-      }
-    }
-  }
-
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
@@ -160,7 +138,7 @@ int main( int argc, char* argv[] )
     lightPos = invCameraMatrix * originalLightPos;
 
     
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, AANoiseVectorArray);
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix);
 
 
 
@@ -182,7 +160,7 @@ int main( int argc, char* argv[] )
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place your drawing here*/
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                          int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, vector<float> AANoiseVectorArray[SCREEN_HEIGHT][SCREEN_WIDTH])
+                          int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix)
 {
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
@@ -212,76 +190,65 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
       //Array of subpixel directions
       vec4 directions[4];
 
-      // int colRand;
-      // int rowRand;
+      int colRand;
+      int rowRand;
 
-      // float colRandF;
-      // float rowRandF;
+      float colRandF;
+      float rowRandF;
+
+      int seed = ceil(row/(col+1) + row + col);
+
+      srand(seed);
       
-      // colRand = rand() % 1001;
-      // rowRand = rand() % 1001;
+      colRand = rand() % 1001;
+      rowRand = rand() % 1001;
 
-      // colRand = 500;
-      // rowRand = 500;
-
-      // cout << (colRand/2000) << "\n";
-      // cout << (rowRand/2000) << "\n";
-
-      // colRandF = float(colRand) / 2000.0f;
-      // rowRandF = float(rowRand) / 2000.0f;
+      colRandF = float(colRand) / 2000.0f;
+      rowRandF = float(rowRand) / 2000.0f;
 
       //Top-left subpixel
       directions[0] = normalize(vec4(
-        col-SCREEN_WIDTH/2 - (AANoiseVectorArray[row][col][0]),
-        row-SCREEN_HEIGHT/2 - (AANoiseVectorArray[row][col][1]),
+        col-SCREEN_WIDTH/2 - (colRandF),
+        row-SCREEN_HEIGHT/2 - (rowRandF),
         focalLength,
         1.0f));
 
-      // colRand = rand() % 1001;
-      // rowRand = rand() % 1001;
+      colRand = rand() % 1001;
+      rowRand = rand() % 1001;
 
-      // colRand = 500;
-      // rowRand = 500;
-
-      // colRandF = float(colRand) / 2000.0f;
-      // rowRandF = float(rowRand) / 2000.0f;
+      colRandF = float(colRand) / 2000.0f;
+      rowRandF = float(rowRand) / 2000.0f;
 
       //Top-right subpixel
       directions[1] = normalize(vec4(
-        col-SCREEN_WIDTH/2 - (AANoiseVectorArray[row][col][2]),
-        row-SCREEN_HEIGHT/2 + (AANoiseVectorArray[row][col][3]),
+        col-SCREEN_WIDTH/2 - (colRandF),
+        row-SCREEN_HEIGHT/2 + (rowRandF),
         focalLength,
         1.0f));
 
-      // colRand = rand() % 1001;
-      // rowRand = rand() % 1001;
+      colRand = rand() % 1001;
+      rowRand = rand() % 1001;
 
-      // colRand = 500;
-      // rowRand = 500;
-
-      // colRandF = float(colRand) / 2000.0f;
-      // rowRandF = float(rowRand) / 2000.0f;
+      colRandF = float(colRand) / 2000.0f;
+      rowRandF = float(rowRand) / 2000.0f;
 
       //bottom-left subpixel
       directions[2] = normalize(vec4(
-        col-SCREEN_WIDTH/2 + (AANoiseVectorArray[row][col][4]),
-        row-SCREEN_HEIGHT/2 - (AANoiseVectorArray[row][col][5]),
+        col-SCREEN_WIDTH/2 + (colRandF),
+        row-SCREEN_HEIGHT/2 - (rowRandF),
         focalLength,
         1.0f));
 
-      // colRand = rand() % 1001;
-      // rowRand = rand() % 1001;
+      colRand = rand() % 1001;
+      rowRand = rand() % 1001;
 
-      // colRand = 500;
-      // rowRand = 500;
-
-      // colRandF = float(colRand) / 2000.0f;
-      // rowRandF = float(rowRand) / 2000.0f;
+      colRandF = float(colRand) / 2000.0f;
+      rowRandF = float(rowRand) / 2000.0f;
 
       //bottom-right subpixel
       directions[3] = normalize(vec4(
-        col-SCREEN_WIDTH/2 + (AANoiseVectorArray[row][col][6]),
-        row-SCREEN_HEIGHT/2 + (AANoiseVectorArray[row][col][7]),
+        col-SCREEN_WIDTH/2 + (colRandF),
+        row-SCREEN_HEIGHT/2 + (rowRandF),
         focalLength,
         1.0f));
 
@@ -289,31 +256,6 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
       //For each sub-pixel
       for (int i = 0; i < 4; i++)
       {
-        // cout << directions[i] << "\n";
-        // cout << directions[i].x << " " << directions[i].y << " " << directions[i].z << " " << directions[i].w << "\n";
-        // //Compute ray direction
-        // vec4 direction = vec4(
-        //   col-SCREEN_WIDTH/2 - (1/4),
-        //   row-SCREEN_HEIGHT/2 - (1/4),
-        //   focalLength,
-        //   1.0f);
-
-        //direction = normalize(direction);
-
-        //LookAt
-        // vec4 transformedDirection = cameraMatrix * direction;
-        // vec4 transformedPostion   = cameraMatrix * cameraPos;
-
-        // direction = transformedDirection - transformedPostion;
-
-        // direction = cameraMatrix * direction;
-
-        //multiply direction by rotation matrix
-        //TODO formulate the rotation matrix
-
-        //Normalise direction of ray
-        // direction = normalize(direction);
-
         //Compute ClosestIntersection
         isIntersections[i] = ClosestIntersection(
           vec4(0,0,0,1),
@@ -343,27 +285,11 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           colourTotal += colour;
         }
       }
-
       colourTotal = colourTotal/4.0f;
 
       //set to colour of that triangle
       PutPixelSDL(screen, col, row, colourTotal);
-      //If an intersection occurs
-      // if (intersect)
-      // {
-      //   //Get triangle from triangles
-      //   Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
 
-      //   //Compute lighting
-      //   vec3 directLight = DirectLight(closestIntersection, lightPos, lightColour, triangles);
-
-      //   //Get colour of triangle
-      //   vec3 colour = (directLight + indirectLight) * intersectedTriangle.color;
-
-      //   //set to colour of that triangle
-      //   PutPixelSDL(screen, col, row, colour);
-      // }
-      // //ELSE set to black
     }
   }
 }
