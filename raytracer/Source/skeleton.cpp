@@ -13,10 +13,11 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 500
-#define SCREEN_HEIGHT 500
+#define SCREEN_WIDTH 400
+#define SCREEN_HEIGHT 400
 #define FULLSCREEN_MODE true
 #define PI 3.14159265
+// #define isAAOn false
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Global Variables
@@ -76,9 +77,9 @@ struct Intersection
  *              FUNCTION DEFS
  * * * * * * * * * * * * * * * * * * * * * * */
 #pragma region FunctionDefs
-void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix);
+void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix);
+                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -119,10 +120,12 @@ int main( int argc, char* argv[] )
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec3 lightColour = 14.0f * vec3( 1.0f, 1.0f, 1.0f );
 
+  bool isAAOn = true;
+
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    Update(cameraPos, yaw, originalLightPos, cameraMatrix);
+    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn);
 
     //Rotation
     mat4 invCameraMatrix = glm::inverse(cameraMatrix);
@@ -138,7 +141,7 @@ int main( int argc, char* argv[] )
     lightPos = invCameraMatrix * originalLightPos;
 
     
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix);
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn);
 
 
 
@@ -160,7 +163,7 @@ int main( int argc, char* argv[] )
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place your drawing here*/
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                          int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix)
+                          int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn)
 {
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
@@ -172,128 +175,166 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
   vec3 indirectLight = 0.5f * vec3( 1, 1, 1 );
 
   //Instantiate closest intersection
-  // Intersection closestIntersection;
+  Intersection closestIntersection;
 
   //For each pixel
   for (int row = 0; row < SCREEN_HEIGHT; row++)
   {
     for (int col = 0; col < SCREEN_WIDTH; col++)
     {
-      /* * * * * * * * * * * * * * * * * * *
-      * 	       Anti-Aliasing
-      * * * * * * * * * * * * * * * * * * */
-
-      //Array of 4 closests intersections
-      Intersection closestIntersections[4];
-      //Array of whether intersection has occurred
-      bool isIntersections[4];
-      //Array of subpixel directions
-      vec4 directions[4];
-
-      //Initialise random
-      int colRand;
-      int rowRand;
-
-      float colRandF;
-      float rowRandF;
-
-      //Imagine screen is flattened to 1D array
-      //Seed is the pixel number
-      int seed = (row * SCREEN_WIDTH) + col;
-
-      srand(seed);
-      
-      //Get random numbers
-      colRand = rand() % 1001;
-      rowRand = rand() % 1001;
-
-      colRandF = float(colRand) / 2000.0f;
-      rowRandF = float(rowRand) / 2000.0f;
-
-      //Top-left subpixel
-      directions[0] = normalize(vec4(
-        col-SCREEN_WIDTH/2 - (colRandF),
-        row-SCREEN_HEIGHT/2 - (rowRandF),
-        focalLength,
-        1.0f));
-
-      colRand = rand() % 1001;
-      rowRand = rand() % 1001;
-
-      colRandF = float(colRand) / 2000.0f;
-      rowRandF = float(rowRand) / 2000.0f;
-
-      //Top-right subpixel
-      directions[1] = normalize(vec4(
-        col-SCREEN_WIDTH/2 - (colRandF),
-        row-SCREEN_HEIGHT/2 + (rowRandF),
-        focalLength,
-        1.0f));
-
-      colRand = rand() % 1001;
-      rowRand = rand() % 1001;
-
-      colRandF = float(colRand) / 2000.0f;
-      rowRandF = float(rowRand) / 2000.0f;
-
-      //bottom-left subpixel
-      directions[2] = normalize(vec4(
-        col-SCREEN_WIDTH/2 + (colRandF),
-        row-SCREEN_HEIGHT/2 - (rowRandF),
-        focalLength,
-        1.0f));
-
-      colRand = rand() % 1001;
-      rowRand = rand() % 1001;
-
-      colRandF = float(colRand) / 2000.0f;
-      rowRandF = float(rowRand) / 2000.0f;
-
-      //bottom-right subpixel
-      directions[3] = normalize(vec4(
-        col-SCREEN_WIDTH/2 + (colRandF),
-        row-SCREEN_HEIGHT/2 + (rowRandF),
-        focalLength,
-        1.0f));
-
-
-      //For each sub-pixel
-      for (int i = 0; i < 4; i++)
+      if(isAAOn)
       {
-        //Compute ClosestIntersection
-        isIntersections[i] = ClosestIntersection(
-          vec4(0,0,0,1),
-          directions[i],
-          triangles,
-          closestIntersections[i]);
+        /* * * * * * * * * * * * * * * * * * *
+        * 	       Anti-Aliasing
+        * * * * * * * * * * * * * * * * * * */
+
+        //Array of 4 closests intersections
+        Intersection closestIntersections[4];
+        //Array of whether intersection has occurred
+        bool isIntersections[4];
+        //Array of subpixel directions
+        vec4 directions[4];
+
+        //Initialise random
+        int colRand;
+        int rowRand;
+
+        float colRandF;
+        float rowRandF;
+
+        //Imagine screen is flattened to 1D array
+        //Seed is the pixel number
+        int seed = (row * SCREEN_WIDTH) + col;
+
+        srand(seed);
+        
+        //Get random numbers
+        colRand = rand() % 1001;
+        rowRand = rand() % 1001;
+
+        colRandF = float(colRand) / 2000.0f;
+        rowRandF = float(rowRand) / 2000.0f;
+
+        //Top-left subpixel
+        directions[0] = normalize(vec4(
+          col-SCREEN_WIDTH/2 - (colRandF),
+          row-SCREEN_HEIGHT/2 - (rowRandF),
+          focalLength,
+          1.0f));
+
+        colRand = rand() % 1001;
+        rowRand = rand() % 1001;
+
+        colRandF = float(colRand) / 2000.0f;
+        rowRandF = float(rowRand) / 2000.0f;
+
+        //Top-right subpixel
+        directions[1] = normalize(vec4(
+          col-SCREEN_WIDTH/2 - (colRandF),
+          row-SCREEN_HEIGHT/2 + (rowRandF),
+          focalLength,
+          1.0f));
+
+        colRand = rand() % 1001;
+        rowRand = rand() % 1001;
+
+        colRandF = float(colRand) / 2000.0f;
+        rowRandF = float(rowRand) / 2000.0f;
+
+        //bottom-left subpixel
+        directions[2] = normalize(vec4(
+          col-SCREEN_WIDTH/2 + (colRandF),
+          row-SCREEN_HEIGHT/2 - (rowRandF),
+          focalLength,
+          1.0f));
+
+        colRand = rand() % 1001;
+        rowRand = rand() % 1001;
+
+        colRandF = float(colRand) / 2000.0f;
+        rowRandF = float(rowRand) / 2000.0f;
+
+        //bottom-right subpixel
+        directions[3] = normalize(vec4(
+          col-SCREEN_WIDTH/2 + (colRandF),
+          row-SCREEN_HEIGHT/2 + (rowRandF),
+          focalLength,
+          1.0f));
+
+
+        //For each sub-pixel
+        for (int i = 0; i < 4; i++)
+        {
+          //Compute ClosestIntersection
+          isIntersections[i] = ClosestIntersection(
+            vec4(0,0,0,1),
+            directions[i],
+            triangles,
+            closestIntersections[i]);
+        }
+
+        vec3 colourTotal;
+
+        //For each subpixel
+        for (int i = 0; i < 4; i++)
+        {
+          //If there is an intersection
+          if (isIntersections[i])
+          {
+            //Get triangle from triangles
+            Triangle intersectedTriangle = triangles[closestIntersections[i].triangleIndex];
+
+            //Compute lighting
+            vec3 directLight = DirectLight(closestIntersections[i], lightPos, lightColour, triangles);
+
+            //Get colour of triangle
+            vec3 colour = (directLight + indirectLight) * intersectedTriangle.color;
+
+            //Running colour total over whole pixel
+            colourTotal += colour;
+          }
+        }
+        colourTotal = colourTotal/4.0f;
+
+        //set to colour of that triangle
+        PutPixelSDL(screen, col, row, colourTotal);
       }
 
-      vec3 colourTotal;
-
-      //For each subpixel
-      for (int i = 0; i < 4; i++)
+      else
       {
-        //If there is an intersection
-        if (isIntersections[i])
+        //Compute ray direction
+        vec4 direction = vec4(
+          col-SCREEN_WIDTH/2,
+          row-SCREEN_HEIGHT/2,
+          focalLength,
+          1.0f);
+
+        //Normalise direction of ray
+        direction = normalize(direction);
+
+        //Compute ClosestIntersection
+        bool intersect = ClosestIntersection(
+          vec4(0,0,0,1),
+          direction,
+          triangles,
+          closestIntersection);
+
+        //If an intersection occurs
+        if (intersect)
         {
           //Get triangle from triangles
-          Triangle intersectedTriangle = triangles[closestIntersections[i].triangleIndex];
+          Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
 
           //Compute lighting
-          vec3 directLight = DirectLight(closestIntersections[i], lightPos, lightColour, triangles);
+          vec3 directLight = DirectLight(closestIntersection, lightPos, lightColour, triangles);
 
           //Get colour of triangle
           vec3 colour = (directLight + indirectLight) * intersectedTriangle.color;
 
-          //Running colour total over whole pixel
-          colourTotal += colour;
+          //set to colour of that triangle
+          PutPixelSDL(screen, col, row, colour);
         }
       }
-      colourTotal = colourTotal/4.0f;
-
-      //set to colour of that triangle
-      PutPixelSDL(screen, col, row, colourTotal);
-
     }
   }
 }
@@ -302,7 +343,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
  *                UPDATE
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place updates of parameters here*/
-void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix)
+void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn)
 {
   // static int t = SDL_GetTicks();
   /* Compute frame time */
@@ -398,6 +439,20 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix)
       yaw += 5;
       yaw = yaw % 360;
     }
+
+    //Switch on/off AA
+    if ( e.key.keysym.scancode == SDL_SCANCODE_N )
+    {
+      if(isAAOn)
+      {
+        isAAOn = false;
+      }
+      else
+      {
+        isAAOn = true;
+      }
+    }
+
 
     //Quit trigger
     if( e.type == SDL_QUIT )
