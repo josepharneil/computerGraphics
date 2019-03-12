@@ -94,6 +94,10 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	triangles.push_back( Triangle( E, F, G, white ) );
 	triangles.push_back( Triangle( F, H, G, white ) );
 
+	//Area Light
+	triangles.push_back( Triangle( E, F, G, white ) );
+	triangles.push_back( Triangle( F, H, G, white ) );
+
 	// Back wall
 	triangles.push_back( Triangle( G, D, C, white ) );
 	triangles.push_back( Triangle( G, H, D, white ) );

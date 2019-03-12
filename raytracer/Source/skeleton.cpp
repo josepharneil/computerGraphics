@@ -18,7 +18,7 @@ using glm::mat4;
 #define SCREEN_HEIGHT 400
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
-#define RAYDEPTH 2
+#define RAYDEPTH 1
 // #define isAAOn false
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -90,9 +90,9 @@ bool ClosestIntersection(
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
                   vec3& lightColour, vector<Triangle>& triangles);
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int& depth );
+                        vec3& lightColour, vector<Triangle>& triangles, int depth );
 void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
-vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
+vec3 UniformSampleHemisphere(float rand1, float rand2);
 vec3 Vec4ToVec3(vec4& vec4);
 vec4 Vec3ToHomogenous(vec3& vec3);
 
@@ -348,8 +348,10 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
           //Get colour of triangle
           // vec3 colour = (directLight + indirectLight) * intersectedTriangle.color;
-          // srand(time(NULL));
+          // int seed = (row * SCREEN_WIDTH) + col;
+          // srand(seed);
           vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, depth);
+          // cout << depth << "\n";
 
           // cout << pathTracedLight << "\n";
 
@@ -629,12 +631,12 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
     }
   }
 
-  return D;
+  return (D * triangles[intersection.triangleIndex].color);
 }
 
 //current is the point we want to find lighting for; previous is where we cast a ray from to find this point.
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int& depth )
+                        vec3& lightColour, vector<Triangle>& triangles, int depth )
 {
   //stop recurse    
   if(depth > RAYDEPTH) {return vec3(0,0,0);}
@@ -653,6 +655,10 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
   CreateCoordinateSystem(normal, Nt, Nb);
 
+  // cout << normal << "\n";
+  // cout << Nt << "\n";
+  // cout << Nb << "\n";
+
   // Nt = vec3(normal.z, 0.0f, -normal.x);
   // float sq = sqrt((normal.x * normal.y) + (normal.z * normal.z));
   // Nt.x /= sq;
@@ -661,7 +667,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   // Nb = glm::cross(normal,Nt);
 
   //Number of samples
-  int N = 2;
+  int N = 32;
 
   float PDF = 1/(2*PI);
   //Create generator/ uniform distribution
@@ -669,21 +675,39 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   // random_device rd;  //Will be used to obtain a seed for the random number engine
   // mt19937 gen(time(NULL)); //Standard mersenne_twister_engine seeded with rd()
     
-  default_random_engine generator;
-  uniform_real_distribution<float> Distribution(0.0f,1.0f);
+  // default_random_engine generator;
+  // uniform_real_distribution<float> Distribution(0.0f,1.0f);
   //For each sample
   for(int i = 0; i < N; i++)
   {
     // srand(time(NULL));
     //Two random numbers uniformly in range 0,1
-    float rand1 = Distribution(generator);
-    float rand2 = Distribution(generator);
-    cout << "(" << rand1 << "," << rand2 << ")" <<"\n";
+    // float rand1 = Distribution(generator);
+    // float rand2 = Distribution(generator);
+
+    float rand1 = ((float) rand() / (RAND_MAX));
+    float rand2 = ((float) rand() / (RAND_MAX));
+    // cout << "(" << rand1 << "," << rand2 << ")" <<"\n";
+
+    // int rand1i;
+    // int rand2i;
+
+    // float rand1;
+    // float rand2;
+
+    // srand(time(0));
+    
+    //Get random numbers
+    // rand1i = rand() % 1001;
+    // rand2i = rand() % 1001;
+
+    // rand1 = float(rand1i) / 1000.0f;
+    // rand2 = float(rand2i) / 1000.0f;
 
     //Sample a ray in hemisphere in the local space (completely ignores scene)
     vec3 sampledLocalDirection = UniformSampleHemisphere(rand1, rand2);
     // cout << "n " << normal.x << "\n";
-    // cout << "nt" << Nt.x << "\n";
+    // cout << "nt" << Nt.x << "\n"; 
     // cout << "nb" << Nb.x << "\n";
 
 
@@ -691,18 +715,17 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     //worldSample = localsample * | Nt | (a 3x3 matrix)
     //                            | N  |
     //                            | Nb |
-    vec3 sampledWorldDirection = vec3(
+    vec4 sampledWorldDirection = vec4(
       sampledLocalDirection.x * Nb.x + sampledLocalDirection.y * normal.x + sampledLocalDirection.z * Nt.x, //x
       sampledLocalDirection.x * Nb.y + sampledLocalDirection.y * normal.y + sampledLocalDirection.z * Nt.y, //y
-      sampledLocalDirection.x * Nb.z + sampledLocalDirection.y * normal.z + sampledLocalDirection.z * Nt.z);//z
+      sampledLocalDirection.x * Nb.z + sampledLocalDirection.y * normal.z + sampledLocalDirection.z * Nt.z, 1);//z, w
     // cout << sampledWorldDirection << "\n";
 
     //Compute the direct light
     
     //Compute next intersection
     Intersection nextIntersection;
-    vec4 sampledWorldDirV4 = vec4(sampledWorldDirection.x,sampledWorldDirection.y,sampledWorldDirection.z,1);
-    bool isIntersect = ClosestIntersection(current.position+ 1e-4f,sampledWorldDirV4,triangles,nextIntersection);
+    bool isIntersect = ClosestIntersection(current.position+1e-4f,sampledWorldDirection,triangles,nextIntersection);
     // cout << Vec3ToHomogenous(sampledWorldDirection) << "\n";
     // cout << sampledWorldDirV4 << "\n";
 
@@ -730,7 +753,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   // accumulator /= (float)N;
   
   //return result
-  result = directLight + ((accumulator/(float)N)/PDF);
+  result = directLight + (((accumulator/(float)N)/PDF));
   // cout << result << "\n";
   
   return result;
@@ -738,43 +761,51 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 }
 
 //N is normal
-//Nt is perpendicular to Nt, and is in the triangle plane
+//Nt is perpendicular to N, and is in the triangle plane
 //Nb perpendicular to both N and Nt so forms the third axis
 void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb)
 {
-  // Nt = vec3(N.z, 0.0f, -N.x) / sqrt(N.x * N.y + N.z * N.z);
-  // Nb = glm::cross(N,Nt);
-
-  if(fabs(N.x) > fabs(N.y))
+  if (fabs(N.x) > fabs(N.y)) 
   {
-    float sq = sqrtf(N.x * N.x + N.z * N.z);
-    Nt.x = N.z/sq;
-    Nt.y = 0.0f;
-    Nt.z = -N.x/sq;
+    Nt = vec3(N.z, 0, -N.x) / sqrtf(N.x * N.x + N.z * N.z); 
   }
   else
   {
-    float sq = sqrtf(N.x * N.x + N.y * N.y);
-    Nt.x = 0.0f;
-    Nt.y = -N.z/sq;
-    Nt.z = -N.y/sq;
+    Nt = vec3(0, -N.z, N.y) / sqrtf(N.y * N.y + N.z * N.z); 
   }
+  Nb = cross(N,Nt);
+  // N.crossProduct(Nt); 
   
 }
 
 //This function remaps rand1 and rand2 to the ranges required
 //of theta and phi in spherical coordinates
 //and finally returns the equivalent cartesian
-vec3 UniformSampleHemisphere(const float &rand1, const float &rand2)
+vec3 UniformSampleHemisphere(float rand1, float rand2)
 { 
+  //SCRATCH
     // cos(theta) = rand1 = y
     // cos^2(theta) + sin^2(theta) = 1 -> sin(theta) = srtf(1 - cos^2(theta))
-    float sinTheta = sqrt(1 - (rand1 * rand1)); 
-    float phi = 2 * PI * rand2;
-    float x = sinTheta * cosf(phi); 
-    float z = sinTheta * sinf(phi); 
+    // float sinTheta = sqrt(1 - (rand1 * rand1)); 
+    // float phi = 2 * PI * rand2;
+    // float x = sinTheta * cosf(phi); 
+    // float z = sinTheta * sinf(phi); 
+    // return vec3(x, rand1, z); 
 
-    return vec3(x, rand1, z); 
+    // //other1
+    // const float r = sqrt(1.0f - rand1 * rand1);
+    // const float phi = 2 * PI * rand2;
+ 
+    // return vec3(cosf(phi) * r, sinf(phi) * r, rand1);
+
+    //other2
+    const float r = sqrt(rand1);
+    const float theta = 2 * PI * rand2;
+ 
+    const float x = r * cos(theta);
+    const float y = r * sin(theta);
+ 
+    return vec3(x, y, sqrt(max(0.0f, 1 - rand1)));
 }
 
 vec3 Vec4ToVec3(vec4& vec4)
