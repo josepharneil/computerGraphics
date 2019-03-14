@@ -53,6 +53,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	vec3 blue(   0.15f, 0.15f, 0.75f );
 	vec3 purple( 0.75f, 0.15f, 0.75f );
 	vec3 white(  0.75f, 0.75f, 0.75f );
+	// vec3 white(  1.0f, 1.0f, 1.0f );
 	vec3 black(  0.00f, 0.00f, 0.00f );
 
 	triangles.clear();

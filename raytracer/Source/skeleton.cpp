@@ -638,9 +638,9 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   if(triangles[current.triangleIndex].smoothness != 0.0f)
   {
     //Find reflected ray from indidence ray and normal
-    vec3 currentVec3 = Vec4ToVec3(current.position) - previous;
+    vec3 incidentRay = Vec4ToVec3(current.position) - previous;
     vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
-    vec3 reflectedRay = Reflect(currentVec3, normalVec3);// + vec3(1.0f,1.0f,1.0f); OFFSET FOR FUN
+    vec3 reflectedRay = Reflect(incidentRay, normalVec3);// + vec3(0.5f,0.5f,0.5f);//OFFSET FOR FUN;
 
     //Find the next intersection of the reflected ray
     Intersection nextIntersection;
@@ -652,7 +652,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     if(isIntersection)
     {
       //Add (slight attenuated) directlight from subsequent reflections
-      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,currentVec3));
+      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay));
     }
     else//If there is no intersection, don't recurse anymore 
     {
