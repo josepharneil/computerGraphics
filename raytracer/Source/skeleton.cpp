@@ -128,7 +128,7 @@ int main( int argc, char* argv[] )
   //Create light source
   vec4 lightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
-  vec3 lightColour = 5.0f * vec3( 1.0f, 1.0f, 1.0f );
+  vec3 lightColour = 8.0f * vec3( 1.0f, 1.0f, 1.0f );
 
   bool isAAOn = false;
 
@@ -630,7 +630,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   CreateCoordinateSystem(normal, Nt, Nb);
 
   //Number of samples
-  int N = 1;
+  int N = 5;
 
   float PDF = 1/(2*PI);
   //Create generator/ uniform distribution
@@ -674,14 +674,14 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     vec4 reflectionDirection4 = vec4(reflectionDirection.x,reflectionDirection.y,reflectionDirection.z,1);
     Intersection nextIntersection;
-    bool isIntersect = ClosestIntersection(current.position+1e-4f,sampledWorldDirection,triangles,nextIntersection);
+    bool isIntersect = ClosestIntersection(current.position+1e-4f,reflectionDirection4,triangles,nextIntersection);
 
     //if an intersection occurs
     if(isIntersect)
     { 
       //recurse
       
-      accumulator += (PathTracer( nextIntersection, lightPos, lightColour, triangles, newDepth, currentPos)*rand1);
+      accumulator += (PathTracer( nextIntersection, lightPos, lightColour, triangles, newDepth, currentPos));//*rand1);
     }
     else//no intersection
     {
@@ -691,9 +691,10 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
   vec3 directLight = DirectLight(current, lightPos, lightColour, triangles);
 
-  result = (triangles[current.triangleIndex].emissive) + directLight + (((accumulator/(float)N)/PDF)*triangles[current.triangleIndex].color);
+  // result = (triangles[current.triangleIndex].emissive) + directLight + (((accumulator/(float)N)/PDF)*triangles[current.triangleIndex].color);
+  result = (triangles[current.triangleIndex].emissive) + directLight + (accumulator*triangles[current.triangleIndex].color);
   
-  return result;
+  return (result);
 }
 
 //N is normal
