@@ -89,8 +89,8 @@ bool ClosestIntersection(
   Intersection& closestIntersection);
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
                   vec3& lightColour, vector<Triangle>& triangles);
-vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous );
+void PathTracer(Intersection current, vec4& lightPos, 
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, vec3& result );
 // void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
 // vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
 vec3 Reflect(const vec3 &incident, const vec3 &normal);
@@ -185,6 +185,8 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
   //Instantiate closest intersection
   Intersection closestIntersection;
+
+  int depth = 0;
 
   // #pragma omp parallel for collapse(2)
   //For each pixel
@@ -294,7 +296,8 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
             //Get triangle from triangles
             Triangle intersectedTriangle = triangles[closestIntersections[i].triangleIndex];
 
-            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0));
+            vec3 pathTracedLight;
+            PathTracer(closestIntersections[i], lightPos, lightColour, triangles, depth, vec3(0,0,0),pathTracedLight);
 
             // vec3 colour = pathTracedLight;// * intersectedTriangle.color;
 
@@ -334,7 +337,8 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
 
           //Path trace the light
-          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0));
+          vec3 pathTracedLight;
+          PathTracer(closestIntersection, lightPos, lightColour, triangles, depth, vec3(0,0,0),pathTracedLight);
 
           // vec3 colour = pathTracedLight * intersectedTriangle.color;
 
@@ -611,28 +615,18 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 }
 
 //current is the point we want to find lighting for; previous is where we cast a ray from to find this point.
-vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous )
+void PathTracer(Intersection current, vec4& lightPos, 
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, vec3 &result )
 {
+  //Stop recursion if depth exceed
   // int russianRoulette = rand() % (6 + 1);
   // if(russianRoulette == 6) {cout << "shot ray in head\n"; return vec3(0,0,0);}
-
-  // cout << depth << "\n";
-
-  //Stop recursion if depth exceed
-  if(depth > RAYDEPTH) 
-  {
-    cout<<"exceeded depth\n";
-    
-    return vec3(0,0,0);
-  }//for some reason never reached?
-
-  depth += 1;
-  // int newDepth = depth + 1;
-  // cout <<newDepth <<"\n";
+  cout << depth << "\n";
+  if(depth > RAYDEPTH) {cout<<"asdf\n";result = vec3(0,0,0);}//return vec3(0,0,0);}//for some reason never reached?
+  int newDepth = depth + 1;
 
   //Initialise result to be returned
-  vec3 result;
+  // vec3 result;
 
   //If there is any smoothness (for reflectance)
   if(triangles[current.triangleIndex].smoothness != 0.0f)
@@ -640,7 +634,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     //Find reflected ray from indidence ray and normal
     vec3 currentVec3 = Vec4ToVec3(current.position) - previous;
     vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
-    vec3 reflectedRay = Reflect(currentVec3, normalVec3);// + vec3(1.0f,1.0f,1.0f); OFFSET FOR FUN
+    vec3 reflectedRay = Reflect(currentVec3, normalVec3);
 
     //Find the next intersection of the reflected ray
     Intersection nextIntersection;
@@ -652,28 +646,24 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     if(isIntersection)
     {
       //Add (slight attenuated) directlight from subsequent reflections
-      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,currentVec3));
+      (PathTracer(nextIntersection,lightPos,lightColour,triangles,newDepth,currentVec3,result));
+      result *= 0.8;
     }
-    else//If there is no intersection, don't recurse anymore 
+    else
     {
-      //(effectively the reflected ray shoots into empty space)
-      // result += vec3(0.0f,0.0f,0.0f);
+      result += vec3(0.0f,0.0f,0.0f);
     }
 
-    //If we want the mirror itself to have shadows, colour etc.
-    //Then backtrace light from the mirror surface
     result += DirectLight( current, lightPos, lightColour, triangles );
     
   }
-  //If the surface is rough (no smoothness)
   else
   {
-    //Backtrace light from the (non-reflective) surface
     result = DirectLight( current, lightPos, lightColour, triangles );
   }
 
-  //Return result
-  return result;
+
+  // return result;
 }
 
 
