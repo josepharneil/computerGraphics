@@ -12,7 +12,7 @@ EXEC=$(B_DIR)/$(FILE)
 # default build settings
 CC_OPTS=-c -pipe -Wall -Wno-switch -ggdb -g3 -Wno-unknown-pragmas -Ofast
 LN_OPTS=
-CC=g++ 
+CC=g++
 
 ########
 #       SDL options

@@ -19,6 +19,7 @@ using glm::mat4;
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define RAYDEPTH 3
+#define DIFFUSE_SAMPLES 10
 // #define isAAOn false
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -91,8 +92,8 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
                   vec3& lightColour, vector<Triangle>& triangles);
 vec3 PathTracer(Intersection current, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous );
-// void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
-// vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
+void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
+vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
 vec3 Reflect(const vec3 &incident, const vec3 &normal);
 vec3 Vec4ToVec3(vec4& vec4);
 vec4 Vec3ToHomogenous(vec3& vec3);
@@ -120,16 +121,16 @@ int main( int argc, char* argv[] )
   LoadTestModel( originalTriangles );
 
   //Camera control
-  // vec4 cameraPos(0.0f,0.0f,-3.0f,1.0f);
-  vec4 cameraPos(0.9f,0.0f,-1.8f,1.0f);
+  vec4 cameraPos(-0.0f,0.0f,-1.8f,1.0f);
+  // vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   mat4 cameraMatrix;
-  // int yaw = 0;
-  int yaw = 20;
+  int yaw = 0;
+  // int yaw = 20;
 
   //Create light source
   vec4 lightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
-  vec3 lightColour = 28.0f * vec3( 1.0f, 1.0f, 1.0f );
+  vec3 lightColour = 4.0f * vec3( 1.0f, 1.0f, 1.0f );
 
   bool isAAOn = false;
 
@@ -186,7 +187,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
   //Instantiate closest intersection
   Intersection closestIntersection;
 
-  // #pragma omp parallel for collapse(2)
+  #pragma omp parallel for collapse(2)
   //For each pixel
   for (int row = 0; row < SCREEN_HEIGHT; row++)
   {
@@ -558,6 +559,7 @@ bool ClosestIntersection(
 
 
 //======== Lighting ========//
+//Returns power only - colour is ignored
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles )
 {
@@ -603,39 +605,40 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
     if ( glm::length(lightIntersection.position - intersection.position) < lightDist )
     {
       //Set to black (i.e., a shadow)
-      D = vec3(0.15f,0.15f,0.15f);
+      D = vec3(0.0f,0.0f,0.0f);
     }
   }
 
-  return (D * triangles[intersection.triangleIndex].color);
+  return D;//(D * triangles[intersection.triangleIndex].color);
 }
 
 //current is the point we want to find lighting for; previous is where we cast a ray from to find this point.
 vec3 PathTracer(Intersection current, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous )
 {
-  // int russianRoulette = rand() % (6 + 1);
-  // if(russianRoulette == 6) {cout << "shot ray in head\n"; return vec3(0,0,0);}
-
-  // cout << depth << "\n";
+  int chamberSize = 2;
+  int russianRoulette = rand() % (chamberSize + 1);
+  if(russianRoulette == chamberSize && depth > 1)
+  {
+    return vec3(0,0,0);
+  }
 
   //Stop recursion if depth exceed
   if(depth > RAYDEPTH) 
-  {
-    cout<<"exceeded depth\n";
-    
+  { 
     return vec3(0,0,0);
-  }//for some reason never reached?
+  }
 
   depth += 1;
   // int newDepth = depth + 1;
   // cout <<newDepth <<"\n";
 
   //Initialise result to be returned
-  vec3 result;
+  vec3 result = vec3(0.0f,0.0f,0.0f);
 
+  //============= Smoothness =============//
   //If there is any smoothness (for reflectance)
-  if(triangles[current.triangleIndex].smoothness != 0.0f)
+  if(triangles[current.triangleIndex].smoothness == 1.0f)
   {
     //Find reflected ray from indidence ray and normal
     vec3 incidentRay = Vec4ToVec3(current.position) - previous;
@@ -651,8 +654,8 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     //If there is an intersection
     if(isIntersection)
     {
-      //Add (slight attenuated) directlight from subsequent reflections
-      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay));
+      //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
+      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay) * triangles[current.triangleIndex].color);
     }
     else//If there is no intersection, don't recurse anymore 
     {
@@ -662,15 +665,81 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     //If we want the mirror itself to have shadows, colour etc.
     //Then backtrace light from the mirror surface
-    result += DirectLight( current, lightPos, lightColour, triangles );
+    // result += (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
     
   }
-  //If the surface is rough (no smoothness)
-  else
+  //============= End Smoothness =============//
+
+
+  //============= Diffuse =============//
+  //If the surface is diffuse (no smoothness)
+  if(triangles[current.triangleIndex].smoothness == 0.0f)
   {
+    //Cast direct light from surface
+    // vec3 directLight = DirectLight( current, lightPos, lightColour, triangles );
+
+    //indirectlight comes from sampling
+    vec3 indirectLight;
+
+    //Find local coordinate system at the intersection
+    vec3 normal = Vec4ToVec3(triangles[current.triangleIndex].normal);
+    vec3 Nt;
+    vec3 Nb;
+    CreateCoordinateSystem(normal,Nt,Nb);
+
+    float PDF = 1.0f/(2.0f*PI);
+
+    //FOR RANGE(0,DIFFUSE_SAMPLES)
+    for(int i = 0; i < DIFFUSE_SAMPLES; i++)
+    {
+      //Sample two random numbers from 0->1
+      float rand1 = ((float) rand() / (RAND_MAX));
+      float rand2 = ((float) rand() / (RAND_MAX));
+
+      //Local hemispherical sampling
+      vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
+
+      //Transform to global
+      vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
+                                 LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
+                                 LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
+      
+      //"Cast" ray, ie., find ClosestIntersection
+      Intersection nextIntersection;
+      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection);
+
+      //If there is an interesction, recurse at +1 depth
+      if(isIntersect)
+      {
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position))*rand1);
+      }
+      else//If there is no intersection, do nothing
+      {
+        //do nothing
+      }
+
+    }
+
+    //
+    indirectLight = (indirectLight/PDF)/(float)DIFFUSE_SAMPLES;
+
+
     //Backtrace light from the (non-reflective) surface
-    result = DirectLight( current, lightPos, lightColour, triangles );
+    // result = (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
+    // result += (directLight + indirectLight) * triangles[current.triangleIndex].color;
+    result += (indirectLight) * triangles[current.triangleIndex].color;
   }
+  //============= End Diffuse =============//
+
+
+
+  //============= Emission =============//
+  result += triangles[current.triangleIndex].emissive;
+  //============= End Emission =============//
+
+
+  result += (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
+
 
   //Return result
   return result;
@@ -683,7 +752,34 @@ vec3 Reflect(const vec3 &incident, const vec3 &normal)
 }
 
 
+void CreateCoordinateSystem(const vec3 &N, vec3 &Nt, vec3 &Nb) 
+{ 
+    if (fabs(N.x) > fabs(N.y)) 
+    {
+      Nt = vec3(N.z, 0.0f, -N.x) / sqrtf(N.x * N.x + N.z * N.z);
+    }
+    else
+    {
+      Nt = vec3(0.0f, -N.z, N.y) / sqrtf(N.y * N.y + N.z * N.z); 
+    }
+    Nb = glm::cross(N,Nt);
+}
 
+vec3 UniformSampleHemisphere(const float &rand1, const float &rand2) 
+{ 
+    // cos(theta) = r1 = y
+    // cos^2(theta) + sin^2(theta) = 1 -> sin(theta) = srtf(1 - cos^2(theta))
+    float sinTheta = sqrtf(1.0f - rand1 * rand1);
+    float phi = 2 * M_PI * rand2; 
+    float x = sinTheta * cosf(phi); 
+    float z = sinTheta * sinf(phi); 
+    return vec3(x, rand1, z); 
+} 
+
+
+
+
+//Helpful functions
 vec3 Vec4ToVec3(vec4& vec4)
 {
   return vec3(vec4.x,vec4.y,vec4.z);
