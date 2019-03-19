@@ -19,8 +19,8 @@ using glm::mat4;
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define RAYDEPTH 2
-#define DIFFUSE_SAMPLES 10
-#define LIGHT_POWER 5.0f
+#define DIFFUSE_SAMPLES 1000000000
+#define LIGHT_POWER 3.0f
 // #define isAAOn false
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -33,6 +33,7 @@ bool quit;
 /* * * * * * * * * * * * * * * * * * *
 * 	          Overrides
 * * * * * * * * * * * * * * * * * * */
+#pragma region Overrides
 //Print vec4s
 std::ostream &operator<<( std::ostream &os, vec4 const &v )
 {
@@ -53,6 +54,7 @@ std::ostream &operator<<( std::ostream &os, mat4 const &m )
 	          << mt[ 2 ] << endl
 	          << mt[ 3 ];
 }
+#pragma endregion
 
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -81,9 +83,9 @@ struct Intersection
  *              FUNCTION DEFS
  * * * * * * * * * * * * * * * * * * * * * * */
 #pragma region FunctionDefs
-void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn);
+void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn);
+                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn, vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -92,10 +94,11 @@ bool ClosestIntersection(
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
                   vec3& lightColour, vector<Triangle>& triangles);
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous );
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight );
 void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
 vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
 vec3 Reflect(const vec3 &incident, const vec3 &normal);
+void ResetScreenAccumulator(vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT]);
 vec3 Vec4ToVec3(vec4& vec4);
 vec4 Vec3ToHomogenous(vec3& vec3);
 void PrintPairOfNumbers(float f1, float f2);
@@ -126,6 +129,27 @@ int main( int argc, char* argv[] )
   // vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   mat4 cameraMatrix;
   int yaw = 0;
+
+  //Initialise
+  cameraMatrix[0][0] = cos( yaw * PI / 180 );
+  cameraMatrix[0][1] = 0;
+  cameraMatrix[0][2] = sin( yaw * PI / 180 );
+  cameraMatrix[0][3] = 0;
+
+  cameraMatrix[1][0] = 0;
+  cameraMatrix[1][1] = 1;
+  cameraMatrix[1][2] = 0;
+  cameraMatrix[1][3] = 0;
+
+  cameraMatrix[2][0] = -sin( yaw * PI / 180 );
+  cameraMatrix[2][1] = 0;
+  cameraMatrix[2][2] = cos( yaw * PI / 180 );
+  cameraMatrix[2][3] = 0;
+
+  cameraMatrix[3][0] = cameraPos.x;
+  cameraMatrix[3][1] = cameraPos.y;
+  cameraMatrix[3][2] = cameraPos.z;
+  cameraMatrix[3][3] = 1;
   // int yaw = 20;
 
   //Create light source
@@ -135,10 +159,17 @@ int main( int argc, char* argv[] )
 
   bool isAAOn = false;
 
+  //Set up array of pixel vals
+  vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT];
+  int sampleCount = 1;
+
+  //Set all to 0
+  ResetScreenAccumulator(screenAccumulator);
+
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn);
+    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount);
 
     //Rotation
     mat4 invCameraMatrix = glm::inverse(cameraMatrix);
@@ -154,7 +185,7 @@ int main( int argc, char* argv[] )
     lightPos = invCameraMatrix * originalLightPos;
 
     
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn);
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount);
 
 
     SDL_Renderframe(screen);
@@ -174,8 +205,10 @@ int main( int argc, char* argv[] )
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place your drawing here*/
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                          int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn)
+                          int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn, 
+                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount)
 {
+  if(sampleCount == DIFFUSE_SAMPLES) {return;}
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
@@ -188,7 +221,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
   //Instantiate closest intersection
   Intersection closestIntersection;
 
-  #pragma omp parallel for collapse(2)
+  // #pragma omp parallel for collapse(2)
   //For each pixel
   for (int row = 0; row < SCREEN_HEIGHT; row++)
   {
@@ -296,7 +329,18 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
             //Get triangle from triangles
             Triangle intersectedTriangle = triangles[closestIntersections[i].triangleIndex];
 
-            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0));
+            //Only sample direct light for 0th sample
+            bool isSampleDirectLight;
+            if(sampleCount == 0)
+            {
+              isSampleDirectLight = true;
+            }
+            else
+            {
+              isSampleDirectLight = false;
+            }
+
+            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight);
 
             // vec3 colour = pathTracedLight;// * intersectedTriangle.color;
 
@@ -335,24 +379,40 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           //Get triangle from triangles
           Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
 
+          //Only sample direct light for 0th sample
+          bool isSampleDirectLight;
+          if(sampleCount == 1)
+          {
+            isSampleDirectLight = true;
+          }
+          else
+          {
+            isSampleDirectLight = false;
+          }
+          
           //Path trace the light
-          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0));
-
+          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight);
+          screenAccumulator[col][row] += pathTracedLight;
           // vec3 colour = pathTracedLight * intersectedTriangle.color;
 
+          vec3 currentColour = vec3(screenAccumulator[col][row].x/sampleCount,screenAccumulator[col][row].y/sampleCount,screenAccumulator[col][row].z/sampleCount);
           //set to colour of that triangle
-          PutPixelSDL(screen, col, row, pathTracedLight);
+          PutPixelSDL(screen, col, row, currentColour);
         } 
       }
     }
   }
+
+  //Increment sample
+  sampleCount += 1;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *                UPDATE
  * * * * * * * * * * * * * * * * * * * * * * */
 /*Place updates of parameters here*/
-void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn)
+void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount)
 {
   // static int t = SDL_GetTicks();
   /* Compute frame time */
@@ -458,6 +518,31 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
       }
     }
 
+    //Restart sampling on any input
+    ResetScreenAccumulator(screenAcc);
+    sampleCount = 1;
+
+    //Recompute cameraMat on any input
+    cameraMatrix[0][0] = cos( yaw * PI / 180 );
+    cameraMatrix[0][1] = 0;
+    cameraMatrix[0][2] = sin( yaw * PI / 180 );
+    cameraMatrix[0][3] = 0;
+
+    cameraMatrix[1][0] = 0;
+    cameraMatrix[1][1] = 1;
+    cameraMatrix[1][2] = 0;
+    cameraMatrix[1][3] = 0;
+
+    cameraMatrix[2][0] = -sin( yaw * PI / 180 );
+    cameraMatrix[2][1] = 0;
+    cameraMatrix[2][2] = cos( yaw * PI / 180 );
+    cameraMatrix[2][3] = 0;
+
+    cameraMatrix[3][0] = cameraPos.x;
+    cameraMatrix[3][1] = cameraPos.y;
+    cameraMatrix[3][2] = cameraPos.z;
+    cameraMatrix[3][3] = 1;
+
 
     //Quit trigger
     if( e.type == SDL_QUIT )
@@ -472,26 +557,6 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
       }
     }
   }
-
-  cameraMatrix[0][0] = cos( yaw * PI / 180 );
-  cameraMatrix[0][1] = 0;
-  cameraMatrix[0][2] = sin( yaw * PI / 180 );
-  cameraMatrix[0][3] = 0;
-
-  cameraMatrix[1][0] = 0;
-  cameraMatrix[1][1] = 1;
-  cameraMatrix[1][2] = 0;
-  cameraMatrix[1][3] = 0;
-
-  cameraMatrix[2][0] = -sin( yaw * PI / 180 );
-  cameraMatrix[2][1] = 0;
-  cameraMatrix[2][2] = cos( yaw * PI / 180 );
-  cameraMatrix[2][3] = 0;
-
-  cameraMatrix[3][0] = cameraPos.x;
-  cameraMatrix[3][1] = cameraPos.y;
-  cameraMatrix[3][2] = cameraPos.z;
-  cameraMatrix[3][3] = 1;
 }
 
 
@@ -615,14 +680,14 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 
 //current is the point we want to find lighting for; previous is where we cast a ray from to find this point.
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous )
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight )
 {
-  int chamberSize = 2;
-  int russianRoulette = rand() % (chamberSize + 1);
-  if(russianRoulette == chamberSize && depth > 1)
-  {
-    return vec3(0,0,0);
-  }
+  // int chamberSize = 2;
+  // int russianRoulette = rand() % (chamberSize + 1);
+  // if(russianRoulette == chamberSize && depth > 1)
+  // {
+  //   return vec3(0,0,0);
+  // }
 
   //Stop recursion if depth exceed
   if(depth > RAYDEPTH) 
@@ -656,7 +721,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     if(isIntersection)
     {
       //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay) * triangles[current.triangleIndex].color);
+      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true) * triangles[current.triangleIndex].color);
     }
     else//If there is no intersection, don't recurse anymore 
     {
@@ -691,44 +756,45 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     float PDF = 1.0f/(2.0f*PI);
 
     //FOR RANGE(0,DIFFUSE_SAMPLES)
-    for(int i = 0; i < DIFFUSE_SAMPLES; i++)
+    // for(int i = 0; i < DIFFUSE_SAMPLES; i++)
+    // {
+
+    //Sample two random numbers from 0->1
+    float rand1 = ((float) rand() / (RAND_MAX));
+    float rand2 = ((float) rand() / (RAND_MAX));
+
+    //Local hemispherical sampling
+    vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
+
+    //Transform to global
+    vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
+                                LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
+                                LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
+    
+    //"Cast" ray, ie., find ClosestIntersection
+    Intersection nextIntersection;
+    bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection);
+
+    //If there is an interesction, recurse at +1 depth
+    if(isIntersect)
     {
-      //Sample two random numbers from 0->1
-      float rand1 = ((float) rand() / (RAND_MAX));
-      float rand2 = ((float) rand() / (RAND_MAX));
+      // float cosTheta = 2.0f * PI * rand2;
+      // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
 
-      //Local hemispherical sampling
-      vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
-
-      //Transform to global
-      vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
-                                 LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
-                                 LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
-      
-      //"Cast" ray, ie., find ClosestIntersection
-      Intersection nextIntersection;
-      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection);
-
-      //If there is an interesction, recurse at +1 depth
-      if(isIntersect)
-      {
-        // float cosTheta = 2.0f * PI * rand2;
-        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
-
-        float cosTheta = rand1;
-        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position))*cosTheta);
-      }
-      else//If there is no intersection, do nothing
-      {
-        //do nothing
-      }
-
+      float cosTheta = rand1;
+      indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true)*cosTheta);
     }
+    else//If there is no intersection, do nothing
+    {
+      //do nothing
+    }
+    // }
 
-    //
+
+    //Normalise directLight
     // indirectLight = (indirectLight)/(float)DIFFUSE_SAMPLES;
-
-    indirectLight = (indirectLight/PDF)/(float)DIFFUSE_SAMPLES;
+    // indirectLight = (indirectLight/PDF)/(float)DIFFUSE_SAMPLES;
+    indirectLight = (indirectLight/PDF);
 
 
     //Backtrace light from the (non-reflective) surface
@@ -745,7 +811,13 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   //============= End Emission =============//
 
 
-  result += (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
+  //Direct lighting
+  // if(isSampleDirectLight)
+  if(true)
+  {
+    result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+    // cout << "using directlight \n";
+  }
 
 
   //Return result
@@ -791,6 +863,18 @@ vec3 UniformSampleHemisphere(const float &rand1, const float &rand2)
   //   return vec3(x, y, sqrtf(max(0.0f, 1.0f - rand1)));
 } 
 
+
+void ResetScreenAccumulator(vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT])
+{
+  //Set all to 0
+  for(int i = 0; i < SCREEN_WIDTH; i++)
+  {
+    for(int j = 0; j < SCREEN_HEIGHT; j++)
+    {
+      screenAcc[i][j] = vec3(0,0,0);
+    }
+  }
+}
 
 
 
