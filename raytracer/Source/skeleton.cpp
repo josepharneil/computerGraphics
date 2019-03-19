@@ -10,6 +10,7 @@
 #include <time.h>
 
 using namespace std;
+using glm::vec2;
 using glm::vec3;
 using glm::mat3;
 using glm::vec4;
@@ -17,13 +18,13 @@ using glm::mat4;
 
 #define SCREEN_WIDTH 400
 #define SCREEN_HEIGHT 400
-#define FULLSCREEN_MODE false
+#define FULLSCREEN_MODE true
 #define PI 3.14159265
-#define RAYDEPTH 4
+#define RAYDEPTH 5
 #define DIFFUSE_SAMPLES 1000000000
 #define LIGHT_POWER 8.0f
 // #define FOCAL_SPHERE_RADIUS 250.0f
-#define APERTURE 0.2f
+#define APERTURE 0.09f
 // #define isAAOn false
 
 //============= Global Variables =============//
@@ -231,6 +232,11 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         bool isIntersections[4];
         //Array of subpixel directions
         vec4 directions[4];
+        //Random aperture sample
+        vec2 apertureSample[4];
+        float randX;
+        float randY;
+        vec4 focalPoint;
 
         //Initialise random
         int colRand;
@@ -245,10 +251,10 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
         // srand(seed);
         
-        //Get random numbers
+
+        /////Subpixel1
         colRand = rand() % 1001;
         rowRand = rand() % 1001;
-
         colRandF = float(colRand) / 2000.0f;
         rowRandF = float(rowRand) / 2000.0f;
 
@@ -259,9 +265,25 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           focalLength,
           1.0f));
 
+        directions[0] = normalize(directions[0]);
+
+        focalPoint = directions[0] * focalSphereRad;
+        focalPoint.w = 1.0f;
+
+        randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+        randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+
+        directions[0] = normalize(focalPoint - vec4(randX,randY,0.0,0.0f));
+
+        apertureSample[0].x = randX;
+        apertureSample[0].y = randY;
+
+
+
+
+        /////Subpixel2
         colRand = rand() % 1001;
         rowRand = rand() % 1001;
-
         colRandF = float(colRand) / 2000.0f;
         rowRandF = float(rowRand) / 2000.0f;
 
@@ -272,9 +294,23 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           focalLength,
           1.0f));
 
+        directions[1] = normalize(directions[1]);
+
+        focalPoint = directions[1] * focalSphereRad;
+        focalPoint.w = 1.0f;
+
+        randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+        randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+
+        directions[1] = normalize(focalPoint - vec4(randX,randY,0.0,0.0f));
+
+        apertureSample[1].x = randX;
+        apertureSample[1].y = randY;
+
+
+        /////Subpixel3
         colRand = rand() % 1001;
         rowRand = rand() % 1001;
-
         colRandF = float(colRand) / 2000.0f;
         rowRandF = float(rowRand) / 2000.0f;
 
@@ -285,9 +321,23 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           focalLength,
           1.0f));
 
+        directions[2] = normalize(directions[2]);
+
+        focalPoint = directions[2] * focalSphereRad;
+        focalPoint.w = 1.0f;
+
+        randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+        randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+
+        directions[2] = normalize(focalPoint - vec4(randX,randY,0.0,0.0f));
+
+        apertureSample[2].x = randX;
+        apertureSample[2].y = randY;
+
+
+        /////Subpixel4
         colRand = rand() % 1001;
         rowRand = rand() % 1001;
-
         colRandF = float(colRand) / 2000.0f;
         rowRandF = float(rowRand) / 2000.0f;
 
@@ -298,13 +348,27 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           focalLength,
           1.0f));
 
+        directions[3] = normalize(directions[3]);
+
+        focalPoint = directions[3] * focalSphereRad;
+        focalPoint.w = 1.0f;
+
+        randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+        randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+
+        directions[3] = normalize(focalPoint - vec4(randX,randY,0.0,0.0f));
+
+        apertureSample[3].x = randX;
+        apertureSample[3].y = randY;
+
+
 
         //For each sub-pixel
         for (int i = 0; i < 4; i++)
         {
           //Compute ClosestIntersection
           isIntersections[i] = ClosestIntersection(
-            vec4(0,0,0,1),
+            vec4(apertureSample[i].x,apertureSample[i].y,0.0f,1),
             directions[i],
             triangles,
             closestIntersections[i]);
@@ -367,20 +431,20 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         //Normalise direction of ray
         direction = normalize(direction);
 
-
+        //Get focal length vector
         vec4 focalPoint = direction * focalSphereRad;
-        // cout << focalSphereRad << "\n";
         focalPoint.w = 1.0f;
 
+        //Randomly sample
         float randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
         float randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
-        float randZ = 0.0f;//APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
 
-        direction = normalize(focalPoint - vec4(randX,randY,randZ,0.0f));
+        //New direction
+        direction = normalize(focalPoint - vec4(randX,randY,0.0f,0.0f));
 
         //Compute ClosestIntersection
         bool intersect = ClosestIntersection(
-          vec4(randX,randY,randZ,1.0f),
+          vec4(randX,randY,0.0f,1.0f),
           direction,
           triangles,
           closestIntersection);
@@ -703,12 +767,14 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 vec3 PathTracer(Intersection current, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight )
 {
-  // int chamberSize = 10;
-  // int russianRoulette = rand() % (chamberSize + 1);
-  // if(russianRoulette == chamberSize && depth > 1)
-  // {
-  //   return vec3(0,0,0);
-  // }
+  //============= Russian Roulette =============//
+  int chamberNumber = 10;
+  int russianRoulette = rand() % (chamberNumber + 1);//number from 0->chamberNumber
+  if(russianRoulette <= 6 && depth > 1)//60% chance, except at depth 0
+  {
+    return vec3(0,0,0);
+  }
+  //============= End Russian Roulette =============//
 
   //Stop recursion if depth exceed
   if(depth > RAYDEPTH) 
