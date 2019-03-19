@@ -18,8 +18,9 @@ using glm::mat4;
 #define SCREEN_HEIGHT 400
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
-#define RAYDEPTH 3
+#define RAYDEPTH 2
 #define DIFFUSE_SAMPLES 10
+#define LIGHT_POWER 5.0f
 // #define isAAOn false
 
 /* * * * * * * * * * * * * * * * * * * * * * *
@@ -121,7 +122,7 @@ int main( int argc, char* argv[] )
   LoadTestModel( originalTriangles );
 
   //Camera control
-  vec4 cameraPos(-0.0f,0.0f,-1.8f,1.0f);
+  vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   // vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   mat4 cameraMatrix;
   int yaw = 0;
@@ -130,7 +131,7 @@ int main( int argc, char* argv[] )
   //Create light source
   vec4 lightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
-  vec3 lightColour = 4.0f * vec3( 1.0f, 1.0f, 1.0f );
+  vec3 lightColour = LIGHT_POWER * vec3( 1.0f, 1.0f, 1.0f );
 
   bool isAAOn = false;
 
@@ -711,7 +712,11 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       //If there is an interesction, recurse at +1 depth
       if(isIntersect)
       {
-        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position))*rand1);
+        // float cosTheta = 2.0f * PI * rand2;
+        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
+
+        float cosTheta = rand1;
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position))*cosTheta);
       }
       else//If there is no intersection, do nothing
       {
@@ -721,6 +726,8 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     }
 
     //
+    // indirectLight = (indirectLight)/(float)DIFFUSE_SAMPLES;
+
     indirectLight = (indirectLight/PDF)/(float)DIFFUSE_SAMPLES;
 
 
@@ -773,7 +780,15 @@ vec3 UniformSampleHemisphere(const float &rand1, const float &rand2)
     float phi = 2 * M_PI * rand2; 
     float x = sinTheta * cosf(phi); 
     float z = sinTheta * sinf(phi); 
-    return vec3(x, rand1, z); 
+    return vec3(x, rand1, z);
+
+
+  // const float r = sqrtf(rand1);
+  // const float theta = 2.0f * PI * rand2;
+  //   const float x = r * cosf(theta);
+  //   const float y = r * sinf(theta);
+ 
+  //   return vec3(x, y, sqrtf(max(0.0f, 1.0f - rand1)));
 } 
 
 
