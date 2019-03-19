@@ -20,19 +20,15 @@ using glm::mat4;
 #define PI 3.14159265
 #define RAYDEPTH 2
 #define DIFFUSE_SAMPLES 1000000000
-#define LIGHT_POWER 3.0f
+#define LIGHT_POWER 5.0f
 // #define isAAOn false
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *              Global Variables
- * * * * * * * * * * * * * * * * * * * * * * */
+//============= Global Variables =============//
 int t;
 bool quit;
 
 
-/* * * * * * * * * * * * * * * * * * *
-* 	          Overrides
-* * * * * * * * * * * * * * * * * * */
+//============= Overrides =============//
 #pragma region Overrides
 //Print vec4s
 std::ostream &operator<<( std::ostream &os, vec4 const &v )
@@ -57,9 +53,7 @@ std::ostream &operator<<( std::ostream &os, mat4 const &m )
 #pragma endregion
 
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *              Structures
- * * * * * * * * * * * * * * * * * * * * * * */
+//============= Structures =============//
 #pragma region Structures
 struct Intersection
 {
@@ -78,10 +72,7 @@ struct Intersection
 // };
 #pragma endregion Structures
 
-
-/* * * * * * * * * * * * * * * * * * * * * * *
- *              FUNCTION DEFS
- * * * * * * * * * * * * * * * * * * * * * * */
+//============= Function Defs =============//
 #pragma region FunctionDefs
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
@@ -106,9 +97,7 @@ void PrintPairOfNumbers(float f1, float f2);
 #pragma endregion FunctionDefs
 
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *                MAIN
- * * * * * * * * * * * * * * * * * * * * * * */
+//============= Main =============//
 int main( int argc, char* argv[] )
 {
   //Initially, do not quit
@@ -130,7 +119,7 @@ int main( int argc, char* argv[] )
   mat4 cameraMatrix;
   int yaw = 0;
 
-  //Initialise
+  //Initialise camera matrix
   cameraMatrix[0][0] = cos( yaw * PI / 180 );
   cameraMatrix[0][1] = 0;
   cameraMatrix[0][2] = sin( yaw * PI / 180 );
@@ -200,10 +189,7 @@ int main( int argc, char* argv[] )
 
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *                DRAW
- * * * * * * * * * * * * * * * * * * * * * * */
-/*Place your drawing here*/
+//============= Draw =============//
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn, 
                           vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount)
@@ -229,9 +215,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
     {
       if(isAAOn)
       {
-        /* * * * * * * * * * * * * * * * * * *
-        * 	       Anti-Aliasing
-        * * * * * * * * * * * * * * * * * * */
+        //============= Anti-Aliasing =============//
 
         //Array of 4 closests intersections
         Intersection closestIntersections[4];
@@ -407,9 +391,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
   sampleCount += 1;
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *                UPDATE
- * * * * * * * * * * * * * * * * * * * * * * */
+//============= Update =============//
 /*Place updates of parameters here*/
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
                               vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount)
@@ -696,9 +678,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   }
 
   depth += 1;
-  // int newDepth = depth + 1;
-  // cout <<newDepth <<"\n";
-
+ 
   //Initialise result to be returned
   vec3 result = vec3(0.0f,0.0f,0.0f);
 
@@ -709,13 +689,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     //Find reflected ray from indidence ray and normal
     vec3 incidentRay = Vec4ToVec3(current.position) - previous;
     vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
-    vec3 reflectedRay = Reflect(incidentRay, normalVec3);// + vec3(0.5f,0.5f,0.5f);//OFFSET FOR FUN;
+    vec3 reflectedRay = Reflect(incidentRay, normalVec3);
 
     //Find the next intersection of the reflected ray
     Intersection nextIntersection;
     vec4 reflectedRayV4 = Vec3ToHomogenous(reflectedRay);
     bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection);
-    // bool isIntersection = ClosestIntersection(current.position + (1e-4f*reflectedRayV4),reflectedRayV4,triangles,nextIntersection);
 
     //If there is an intersection
     if(isIntersection)
@@ -741,9 +720,6 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   //If the surface is diffuse (no smoothness)
   if(triangles[current.triangleIndex].smoothness == 0.0f)
   {
-    //Cast direct light from surface
-    // vec3 directLight = DirectLight( current, lightPos, lightColour, triangles );
-
     //indirectlight comes from sampling
     vec3 indirectLight;
 
@@ -755,9 +731,6 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     float PDF = 1.0f/(2.0f*PI);
 
-    //FOR RANGE(0,DIFFUSE_SAMPLES)
-    // for(int i = 0; i < DIFFUSE_SAMPLES; i++)
-    // {
 
     //Sample two random numbers from 0->1
     float rand1 = ((float) rand() / (RAND_MAX));
@@ -788,18 +761,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     {
       //do nothing
     }
-    // }
 
-
-    //Normalise directLight
-    // indirectLight = (indirectLight)/(float)DIFFUSE_SAMPLES;
-    // indirectLight = (indirectLight/PDF)/(float)DIFFUSE_SAMPLES;
+    //Div. indirect light by pdf
     indirectLight = (indirectLight/PDF);
 
 
     //Backtrace light from the (non-reflective) surface
-    // result = (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
-    // result += (directLight + indirectLight) * triangles[current.triangleIndex].color;
     result += (indirectLight) * triangles[current.triangleIndex].color;
   }
   //============= End Diffuse =============//
@@ -815,8 +782,8 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   // if(isSampleDirectLight)
   if(true)
   {
+    // float temp = 2.0f * PI;
     result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
-    // cout << "using directlight \n";
   }
 
 
