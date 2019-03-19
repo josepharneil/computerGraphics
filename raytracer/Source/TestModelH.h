@@ -53,7 +53,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	vec3 blue(   0.15f, 0.15f, 0.75f );
 	vec3 purple( 0.75f, 0.15f, 0.75f );
 	vec3 white(  0.75f, 0.75f, 0.75f );
-	// vec3 white(  1.0f, 1.0f, 1.0f );
+	vec3 pureWhite(  1.0f, 1.0f, 1.0f );
 	vec3 black(  0.00f, 0.00f, 0.00f );
 
 	triangles.clear();
@@ -69,28 +69,34 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	vec4 C(L,0,L,1);
 	vec4 D(0,0,L,1);
 
-	vec4 E(L,L,0,1);
-	vec4 F(0,L,0,1);
-	vec4 G(L,L,L,1);
-	vec4 H(0,L,L,1);
+	vec4 E(L,L,0,1);//back-top-left
+	vec4 F(0,L,0,1);//front-top-left
+	vec4 G(L,L,L,1);//back-top-right
+	vec4 H(0,L,L,1);//front-top-right
 
 
+
+	float areaLightLength = 60.0f;
 	//x,y,z,w
-	vec4 areaE(L-100,L-1,100,1);
-	vec4 areaF(100,L-1,100,1);
-	vec4 areaG(L-100,L-1,L-100,1);
-	vec4 areaH(100,L-1,L-100,1);
+	vec4 areaE(L-areaLightLength, L-0.5f, areaLightLength  , 1);
+	vec4 areaF(areaLightLength  , L-0.5f, areaLightLength  , 1);
+	vec4 areaG(L-areaLightLength, L-0.5f, L-areaLightLength, 1);
+	vec4 areaH(areaLightLength  , L-0.5f, L-areaLightLength, 1);
+
+
+	// vec4 tri(areaLightLength,L,0,1);
+	// vec4 tri1(0,L,L-areaLightLength,1);
 
 	//Area Light
-	// triangles.push_back( Triangle( areaE, areaF, areaG, white, white,0.0f ) );
-	// triangles.push_back( Triangle( areaF, areaH, areaG, white, white,0.0f ) );
+	// triangles.push_back( Triangle( areaE, areaF, areaG, black, pureWhite,0.0f ) );
+	// triangles.push_back( Triangle( areaF, areaH, areaG, black, pureWhite,0.0f ) );
 
 
 	// Floor:
 	// triangles.push_back( Triangle( C, B, A, green ) );
 	// triangles.push_back( Triangle( C, D, B, green ) );
-	triangles.push_back( Triangle( C, B, A, white,black,0.0f ) );
-	triangles.push_back( Triangle( C, D, B, white,black,0.0f ) );
+	triangles.push_back( Triangle( C, B, A, white,black,1.0f ) );
+	triangles.push_back( Triangle( C, D, B, white,black,1.0f ) );
 
 	// Left wall
 	// triangles.push_back( Triangle( A, E, C, purple ) );
@@ -109,6 +115,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// triangles.push_back( Triangle( F, H, G, cyan ) );
 	triangles.push_back( Triangle( E, F, G, white, black,0.0f ) );
 	triangles.push_back( Triangle( F, H, G, white, black,0.0f ) );
+
+	// triangles.push_back( Triangle(F,tri,tri1,cyan,black,0.0f) );
 
 
 

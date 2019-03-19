@@ -7,6 +7,7 @@
 #include <limits>
 #include <math.h>
 #include <random>
+#include <time.h>
 
 using namespace std;
 using glm::vec3;
@@ -18,9 +19,11 @@ using glm::mat4;
 #define SCREEN_HEIGHT 400
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
-#define RAYDEPTH 2
+#define RAYDEPTH 4
 #define DIFFUSE_SAMPLES 1000000000
-#define LIGHT_POWER 5.0f
+#define LIGHT_POWER 8.0f
+// #define FOCAL_SPHERE_RADIUS 250.0f
+#define APERTURE 0.2f
 // #define isAAOn false
 
 //============= Global Variables =============//
@@ -74,9 +77,11 @@ struct Intersection
 
 //============= Function Defs =============//
 #pragma region FunctionDefs
-void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount);
+void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
-                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn, vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount);
+                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn, 
+                           vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -119,6 +124,9 @@ int main( int argc, char* argv[] )
   mat4 cameraMatrix;
   int yaw = 0;
 
+  //Focusing
+  float focalSphereRad = 1.4f;
+
   //Initialise camera matrix
   cameraMatrix[0][0] = cos( yaw * PI / 180 );
   cameraMatrix[0][1] = 0;
@@ -158,7 +166,7 @@ int main( int argc, char* argv[] )
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount);
+    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad);
 
     //Rotation
     mat4 invCameraMatrix = glm::inverse(cameraMatrix);
@@ -174,7 +182,7 @@ int main( int argc, char* argv[] )
     lightPos = invCameraMatrix * originalLightPos;
 
     
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount);
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad);
 
 
     SDL_Renderframe(screen);
@@ -192,7 +200,7 @@ int main( int argc, char* argv[] )
 //============= Draw =============//
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn, 
-                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount)
+                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad)
 {
   if(sampleCount == DIFFUSE_SAMPLES) {return;}
   /* Clear buffer */
@@ -233,9 +241,9 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
         //Imagine screen is flattened to 1D array
         //Seed is the pixel number
-        int seed = (row * SCREEN_WIDTH) + col;
+        // int seed = (row * SCREEN_WIDTH) + col;
 
-        srand(seed);
+        // srand(seed);
         
         //Get random numbers
         colRand = rand() % 1001;
@@ -315,7 +323,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
             //Only sample direct light for 0th sample
             bool isSampleDirectLight;
-            if(sampleCount == 0)
+            if(sampleCount == 1)
             {
               isSampleDirectLight = true;
             }
@@ -332,10 +340,19 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
             colourTotal += pathTracedLight;
           }
         }
+        //average colour over 4 sub-pixels
         colourTotal = colourTotal/4.0f;
+        // colourTotal = vec3(colourTotal.x/4.0f,colourTotal.y/4.0f,colourTotal.z/4.0f)
+        // cout << colourTotal << "\n";
+
+        //Accumulate
+        screenAccumulator[col][row] += colourTotal;
+
+        //Average over #samples
+        vec3 currentColour = vec3(screenAccumulator[col][row].x/sampleCount,screenAccumulator[col][row].y/sampleCount,screenAccumulator[col][row].z/sampleCount);
 
         //set to colour of that triangle
-        PutPixelSDL(screen, col, row, colourTotal);
+        PutPixelSDL(screen, col, row, currentColour);
       }
 
       else//No AA
@@ -350,9 +367,20 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         //Normalise direction of ray
         direction = normalize(direction);
 
+
+        vec4 focalPoint = direction * focalSphereRad;
+        // cout << focalSphereRad << "\n";
+        focalPoint.w = 1.0f;
+
+        float randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+        float randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+        float randZ = 0.0f;//APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
+
+        direction = normalize(focalPoint - vec4(randX,randY,randZ,0.0f));
+
         //Compute ClosestIntersection
         bool intersect = ClosestIntersection(
-          vec4(0,0,0,1),
+          vec4(randX,randY,randZ,1.0f),
           direction,
           triangles,
           closestIntersection);
@@ -376,16 +404,18 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           
           //Path trace the light
           vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight);
-          screenAccumulator[col][row] += pathTracedLight;
-          // vec3 colour = pathTracedLight * intersectedTriangle.color;
 
+          //Accumulate
+          screenAccumulator[col][row] += pathTracedLight;
+
+          //Average over #samples
           vec3 currentColour = vec3(screenAccumulator[col][row].x/sampleCount,screenAccumulator[col][row].y/sampleCount,screenAccumulator[col][row].z/sampleCount);
           //set to colour of that triangle
           PutPixelSDL(screen, col, row, currentColour);
-        } 
-      }
+        }
+      }//end no aa
     }
-  }
+  }//end loop through pixels
 
   //Increment sample
   sampleCount += 1;
@@ -394,7 +424,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 //============= Update =============//
 /*Place updates of parameters here*/
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
-                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount)
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad)
 {
   // static int t = SDL_GetTicks();
   /* Compute frame time */
@@ -498,6 +528,15 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
       {
         isAAOn = true;
       }
+    }
+
+    if (e.key.keysym.scancode == SDL_SCANCODE_O)
+    {
+      focalSphereRad += 0.2f;
+    }
+      if (e.key.keysym.scancode == SDL_SCANCODE_L)
+    {
+      focalSphereRad -= 0.2f;
     }
 
     //Restart sampling on any input
@@ -664,7 +703,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 vec3 PathTracer(Intersection current, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight )
 {
-  // int chamberSize = 2;
+  // int chamberSize = 10;
   // int russianRoulette = rand() % (chamberSize + 1);
   // if(russianRoulette == chamberSize && depth > 1)
   // {
@@ -733,6 +772,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
 
     //Sample two random numbers from 0->1
+    // srand(time( NULL ));
     float rand1 = ((float) rand() / (RAND_MAX));
     float rand2 = ((float) rand() / (RAND_MAX));
 
@@ -741,8 +781,8 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     //Transform to global
     vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
-                                LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
-                                LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
+                               LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
+                               LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
     
     //"Cast" ray, ie., find ClosestIntersection
     Intersection nextIntersection;
@@ -755,7 +795,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
 
       float cosTheta = rand1;
-      indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true)*cosTheta);
+      indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true)*cosTheta*0.5f);
     }
     else//If there is no intersection, do nothing
     {
