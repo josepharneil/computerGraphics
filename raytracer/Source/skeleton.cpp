@@ -808,10 +808,10 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     vec3 incidentRay = Vec4ToVec3(current.position) - previous;
     vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
     vec3 reflectedRay = Reflect(incidentRay, normalVec3);
+    vec4 reflectedRayV4 = Vec3ToHomogenous(reflectedRay);
 
     //Find the next intersection of the reflected ray
     Intersection nextIntersection;
-    vec4 reflectedRayV4 = Vec3ToHomogenous(reflectedRay);
     bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection);
 
     //If there is an intersection
@@ -842,19 +842,59 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     //Random number from 0->1
     float randNum = ((float) rand() / (RAND_MAX));
-    if(randNum <= smoothness)
-    {
-      //do spec
 
-      //get reflected ray
-      //sample around disk
-    }
-    else
+    if(randNum <= smoothness)//do spec
     {
-      //do diffuse
+      //============= Random Specular Sample =============//
+      //Sample within specular radius
+      float specularSampleRadius = 0.2f;
+      float randXOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+      float randYOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+      vec3 localDirectionOffset = vec3(randXOffset,randYOffset,0);
+
+      //Create local coordinate system of current triangle
+      vec3 normal = Vec4ToVec3(triangles[current.triangleIndex].normal);
+      vec3 Nt;
+      vec3 Nb;
+      CreateCoordinateSystem(normal,Nt,Nb);
+
+      //convert to local offset to global coordinates
+      vec3 globalDirectionOffset = vec3(localDirectionOffset.x * Nb.x + localDirectionOffset.y * normal.x + localDirectionOffset.z * Nt.x, 
+                                        localDirectionOffset.x * Nb.y + localDirectionOffset.y * normal.y + localDirectionOffset.z * Nt.y, 
+                                        localDirectionOffset.x * Nb.z + localDirectionOffset.y * normal.z + localDirectionOffset.z * Nt.z);
+
+      //============= Reflected Ray =============//
+      //Find reflected ray from indidence ray and normal
+      vec3 incidentRay = Vec4ToVec3(current.position) - previous;
+      vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
+      vec3 reflectedRay = Reflect(incidentRay, normalVec3);
+
+      //Add offset to reflected ray
+      vec3 specularRayVec3 = reflectedRay + globalDirectionOffset;
+      vec4 specularRay = Vec3ToHomogenous(specularRayVec3);
+
+
+      //============= Cast Ray/ Closest Intersection =============//
+      //Cast ray
+      Intersection nextIntersection;
+      bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection);
+
+      //If there is an intersection
+      if(isIntersection)
+      {
+        //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
+        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight) * triangles[current.triangleIndex].color);
+      }
+      else//If there is no intersection, don't recurse anymore 
+      {
+        //(effectively the reflected ray shoots into empty space)
+        // result += vec3(0.0f,0.0f,0.0f);
+      }
+    }
+    else//do diffuse
+    {
       castDiffuseRay = true;
     }
-    
   }
   //=============End Specularity =============//
 
