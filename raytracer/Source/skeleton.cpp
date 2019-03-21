@@ -23,8 +23,8 @@ using glm::mat4;
 #define RAYDEPTH 5
 #define DIFFUSE_SAMPLES 1000000000
 #define LIGHT_POWER 7.0f
-#define AREA_LIGHT_RADIUS 0.4f
-#define AREA_LIGHT_SAMPLES 10
+#define SPHERE_LIGHT_RADIUS 0.25f
+#define SPHERE_LIGHT_SAMPLES 10
 // #define FOCAL_SPHERE_RADIUS 250.0f
 #define APERTURE 0.0f
 // #define isAAOn false
@@ -929,15 +929,47 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
   //============= Find Hits to Area Light =============//
   int hits = 0;
 
-  //sample AREA_LIGHT_SAMPLES points on disc
+  //sample SPHERE_LIGHT_SAMPLES points on disc
   float randX;
   float randY;
-  for(int i = 0; i < AREA_LIGHT_SAMPLES; i++)
-  {
-    randX = (((float) rand() / (RAND_MAX)) *AREA_LIGHT_RADIUS*2) - AREA_LIGHT_RADIUS;
-    randY = (((float) rand() / (RAND_MAX)) *AREA_LIGHT_RADIUS*2) - AREA_LIGHT_RADIUS;
+  float randZ;
 
-    vec4 samplePoint = lightPos + vec4(randX,randY,0,0);
+  // double theta = 0, phi = 0;
+  // for(int i = 0; i < nSample; i++) {  
+  //   theta = 2*PI*irand(0,1);
+  //   // corrrect
+  //   phi = acos(2*irand(0,1)-1.0);
+  //   // incorrect
+  //   //phi = PI*irand(0,1);
+  //   x[i] = cos(theta)*sin(phi);
+  //   y[i] = sin(theta)*sin(phi);
+  //   z[i] = cos(phi);
+  // }
+
+  float theta = 0;
+  float phi = 0;
+  for(int i = 0; i < SPHERE_LIGHT_SAMPLES; i++)
+  {
+    theta = ((float) rand() / (RAND_MAX)) * 2.0f * PI;
+    phi = acos((((float) rand() / (RAND_MAX)) * 2.0f) - 1.0f);
+
+    randX = cosf(theta)*sinf(phi);
+    randY = sinf(theta)*sinf(phi);
+    randZ = cosf(phi);
+
+    randX = (randX*SPHERE_LIGHT_RADIUS*2.0f) - SPHERE_LIGHT_RADIUS;
+    randY = (randY*SPHERE_LIGHT_RADIUS*2.0f) - SPHERE_LIGHT_RADIUS;
+    randZ = (randZ*SPHERE_LIGHT_RADIUS*2.0f) - SPHERE_LIGHT_RADIUS;
+
+    // randX = (((float) rand() / (RAND_MAX)) *AREA_LIGHT_RADIUS*2) - AREA_LIGHT_RADIUS;
+    // randY = (((float) rand() / (RAND_MAX)) *AREA_LIGHT_RADIUS*2) - AREA_LIGHT_RADIUS;
+
+    vec4 samplePoint = lightPos + vec4(randX,randY,randZ,0);
+
+
+
+
+
     vec4 lightDir = samplePoint - intersection.position;
     vec4 lightDirNormalised = normalize(samplePoint - intersection.position);
 
@@ -959,7 +991,7 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
   }//end random sample hit counting
 
   //============= Calcuate power =============//
-  float proportionHits = (float)hits / (float)AREA_LIGHT_SAMPLES;
+  float proportionHits = (float)hits / (float)SPHERE_LIGHT_SAMPLES;
 
   // Light colour is P
   vec3 P = lightColour * proportionHits;
