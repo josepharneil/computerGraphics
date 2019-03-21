@@ -18,7 +18,7 @@ using glm::mat4;
 
 #define SCREEN_WIDTH 400
 #define SCREEN_HEIGHT 400
-#define FULLSCREEN_MODE true
+#define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define RAYDEPTH 5
 #define DIFFUSE_SAMPLES 1000000000
@@ -63,9 +63,10 @@ std::ostream &operator<<( std::ostream &os, mat4 const &m )
 #pragma region Structures
 struct Intersection
 {
-    vec4 position;
-    float distance;
-    int triangleIndex;
+  vec4 position;
+  float distance;
+  int triangleIndex;
+  int sphereIndex;
 };
 
 // struct Triangle
@@ -76,6 +77,28 @@ struct Intersection
 //   vec4 normal;
 //   vec3 color;
 // };
+
+// struct Sphere
+// {
+//   vec4 centre;
+//   float radius;
+// 	vec3 color;
+// 	vec3 emissive;
+// 	float smoothness;
+// };
+
+class Sphere
+{
+  public:
+    vec4 centre;
+    float radius;
+    vec3 color;
+    vec3 emissive;
+    float smoothness;
+
+  Sphere( vec4 centre, float radius, vec3 color, vec3 emissive, float smoothness )
+		: centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness){}
+};
 #pragma endregion Structures
 
 //============= Function Defs =============//
@@ -84,18 +107,19 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
                               vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                            int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn, 
-                           vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight);
+                           vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight,
+                           const vector<Sphere>& spheres);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
   const vector<Triangle>& triangles,
-  Intersection& closestIntersection);
+  Intersection& closestIntersection, const vector<Sphere>& spheres);
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
-                  vec3& lightColour, vector<Triangle>& triangles);
+                  vec3& lightColour, vector<Triangle>& triangles, const vector<Sphere>& spheres);
 vec3 AreaLightSample( Intersection& intersection, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles );
+                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres );
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool &isAreaLight );
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool &isAreaLight,const vector<Sphere>& spheres );
 void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
 vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
 vec3 Reflect(const vec3 &incident, const vec3 &normal);
@@ -170,6 +194,17 @@ int main( int argc, char* argv[] )
   //Set all to 0
   ResetScreenAccumulator(screenAccumulator);
 
+
+  //============= SPHERES =============//
+  vector<Sphere> spheres;
+
+	spheres.clear();
+	spheres.reserve( 5*2*3 );
+
+  vec4 centreTEMP(0.0f,0.0f,0.0f,1.0f);
+  spheres.push_back( Sphere(centreTEMP,0.5f,vec3(0.75f,0.25f,0.25f), vec3(0.0f,0.0f,0.0f),0.0f) );
+
+
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
@@ -189,7 +224,7 @@ int main( int argc, char* argv[] )
     lightPos = invCameraMatrix * originalLightPos;
 
     
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight);
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight, spheres);
 
 
     SDL_Renderframe(screen);
@@ -207,7 +242,7 @@ int main( int argc, char* argv[] )
 //============= Draw =============//
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn, 
-                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight)
+                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight, const vector<Sphere>& spheres)
 {
   if(sampleCount == DIFFUSE_SAMPLES) {return;}
   /* Clear buffer */
@@ -377,7 +412,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
             vec4(apertureSample[i].x,apertureSample[i].y,0.0f,1),
             directions[i],
             triangles,
-            closestIntersections[i]);
+            closestIntersections[i],spheres);
         }
 
         vec3 colourTotal = vec3(0.0f,0.0f,0.0f);
@@ -402,7 +437,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
               isSampleDirectLight = false;
             }
 
-            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight);
+            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight,spheres);
 
             // vec3 colour = pathTracedLight;// * intersectedTriangle.color;
 
@@ -453,7 +488,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           vec4(randX,randY,0.0f,1.0f),
           direction,
           triangles,
-          closestIntersection);
+          closestIntersection,spheres);
 
         //If an intersection occurs
         if (intersect)
@@ -473,7 +508,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           }
           
           //Path trace the light
-          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight);
+          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight,spheres);
 
           //Accumulate
           screenAccumulator[col][row] += pathTracedLight;
@@ -607,7 +642,7 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
     }
 
     //Move focalsphereradius
-    if (e.key.keysym.scancode == SDL_SCANCODE_O)
+    if (e.key.keysym.scancode == SDL_SCANCODE_O)\
     {
       focalSphereRad += 0.2f;
     }
@@ -663,13 +698,15 @@ bool ClosestIntersection(
   vec4 start,
   vec4 dir,
   const vector<Triangle>& triangles,
-  Intersection& closestIntersection)
+  Intersection& closestIntersection,
+  const vector<Sphere>& spheres)
 {
   start = start + 1e-4f * dir;
   //Get closest intersection
   float minDist = numeric_limits<float>::max();
   bool result = false;
 
+  //============= Triangles =============//
   //For each triangle
   for (int i = 0; i < triangles.size(); i++)
   {
@@ -711,12 +748,62 @@ bool ClosestIntersection(
         //We set w = 1 -- not sure of this
         closestIntersection.position = vec4(start.x+t*dir.x, start.y+t*dir.y, start.z+t*dir.z, 1);
         closestIntersection.distance = t;
+        closestIntersection.sphereIndex = -1;
         closestIntersection.triangleIndex = i;
 
         minDist = t;
       }
     }
   }
+
+  //============= Spheres =============//
+  //For each sphere
+  for(int i = 0; i < spheres.size();i++)
+  {
+    float t0,t1;
+    vec4 L = spheres[i].centre - start;
+    float tca = glm::dot(L,dir);
+    if(tca < 0) 
+    {
+      continue;
+    }
+    float d2 = glm::dot(L,L) - (tca * tca); 
+    if (d2 > (spheres[i].radius* spheres[i].radius))
+    {
+      continue;
+    }
+    float thc = sqrt((spheres[i].radius* spheres[i].radius) - d2); 
+    t0 = tca - thc; 
+    t1 = tca + thc; 
+
+    if (t0 > t1) 
+    {
+      std::swap(t0, t1);
+    }
+
+    if (t0 < 0) 
+    { 
+      t0 = t1; // if t0 is negative, let's use t1 instead 
+      if (t0 < 0) 
+      {
+        continue;
+      } // both t0 and t1 are negative 
+    }
+
+    //If get to this point then an intersection has occured.
+    t = t0;
+    if (t < minDist)
+    {
+        // cout<<"sphere found" << "\n";
+        closestIntersection.position = vec4(start.x+t*dir.x, start.y+t*dir.y, start.z+t*dir.z, 1);
+        closestIntersection.distance = t;
+        closestIntersection.sphereIndex = i;
+        closestIntersection.triangleIndex = -1;
+        minDist = t;
+    }
+    result = true;
+  }
+
   return result;
 }
 
@@ -725,7 +812,7 @@ bool ClosestIntersection(
 //======== Lighting ========//
 //Returns power only - colour is ignored
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles )
+                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres )
 {
   // Light colour is P
   vec3 P = lightColour;
@@ -758,7 +845,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
   //Move all points a very small amount along the ray.
   //This 1e-5f is to account for these floating point errors.
   // bool intersectionFound = ClosestIntersection(intersection.position + 1e-4f * lightDirNorm,lightDirNorm,triangles,lightIntersection);
-  bool intersectionFound = ClosestIntersection(intersection.position,lightDirNorm,triangles,lightIntersection);
+  bool intersectionFound = ClosestIntersection(intersection.position,lightDirNorm,triangles,lightIntersection,spheres);
   
   //If an intersection is found
   //2nd part of conjunction is to deal with the light being inside of the wall 
@@ -778,7 +865,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 
 //current is the point we want to find lighting for; previous is where we cast a ray from to find this point.
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool& isAreaLight )
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool& isAreaLight, const vector<Sphere>& spheres )
 {
   //============= Russian Roulette =============//
   int chamberNumber = 10;
@@ -812,13 +899,13 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     //Find the next intersection of the reflected ray
     Intersection nextIntersection;
-    bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection);
+    bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres);
 
     //If there is an intersection
     if(isIntersection)
     {
       //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight) * triangles[current.triangleIndex].color);
+      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * triangles[current.triangleIndex].color);
     }
     else//If there is no intersection, don't recurse anymore 
     {
@@ -884,7 +971,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       //============= Cast Ray/ Closest Intersection =============//
       //Cast ray
       Intersection nextIntersection;
-      bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection);
+      bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres);
 
       //If there is an intersection
       if(isIntersection)
@@ -894,7 +981,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         BRDF = 1.0f;
         // cout << BRDF << "\n";
         //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight) * triangles[current.triangleIndex].color * BRDF);
+        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * triangles[current.triangleIndex].color * BRDF);
       }
       else//If there is no intersection, don't recurse anymore 
       {
@@ -942,7 +1029,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     
     //"Cast" ray, ie., find ClosestIntersection
     Intersection nextIntersection;
-    bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection);
+    bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres);
 
     //If there is an interesction, recurse at +1 depth
     if(isIntersect)
@@ -951,7 +1038,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
 
       float cosTheta = rand1;
-      indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight)*cosTheta*0.5f); //0.5f is the attenuation factor
+      indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosTheta*0.5f); //0.5f is the attenuation factor
     }
     else//If there is no intersection, do nothing
     {
@@ -986,7 +1073,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   //In all cases, we sample the light (at maximum importance)
   if(isAreaLight)//arealight
   {
-    result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+    result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color));
   }
   else//pointlight
   {
@@ -1006,11 +1093,11 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
       BRDF = 1.0f;
 
-      result += ( ((DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color)) * BRDF   );
+      result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres ) * triangles[current.triangleIndex].color)) * BRDF   );
     }
     else  //if we are casting a diffuse ray
     {
-      result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+      result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres ) * triangles[current.triangleIndex].color));
     }
   }
   //============= End Direct Lighting =============//
@@ -1021,7 +1108,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 }
 
 vec3 AreaLightSample( Intersection& intersection, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles )
+                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres )
 {
   //============= Find Hits to Area Light =============//
   int hits = 0;
@@ -1057,7 +1144,7 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
     float lightDist = glm::length(lightDir);
 
     Intersection lightIntersection;
-    bool intersectionFound = ClosestIntersection(intersection.position,lightDirNormalised,triangles,lightIntersection);
+    bool intersectionFound = ClosestIntersection(intersection.position,lightDirNormalised,triangles,lightIntersection,spheres);
     
     //If no intersection found, then we hit the light
     if(!intersectionFound)
