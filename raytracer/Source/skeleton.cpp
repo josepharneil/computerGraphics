@@ -800,7 +800,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   //Initialise result to be returned
   vec3 result = vec3(0.0f,0.0f,0.0f);
 
-  //============= Smoothness =============//
+  //============= Smoothness/Mirror =============//
   //If there is any smoothness (for reflectance)
   if(triangles[current.triangleIndex].smoothness == 1.0f)
   {
@@ -833,10 +833,36 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   }
   //============= End Smoothness =============//
 
+  //============= Specularity =============//
+  bool castDiffuseRay = false;
+  if(triangles[current.triangleIndex].smoothness < 1.0f && triangles[current.triangleIndex].smoothness > 0.0f)
+  {
+    //if 0.6, 60% chance of specular ray being cast, 40% of diffuse
+    float smoothness = triangles[current.triangleIndex].smoothness;
+
+    //Random number from 0->1
+    float randNum = ((float) rand() / (RAND_MAX));
+    if(randNum <= smoothness)
+    {
+      //do spec
+
+      //get reflected ray
+      //sample around disk
+    }
+    else
+    {
+      //do diffuse
+      castDiffuseRay = true;
+    }
+    
+  }
+  //=============End Specularity =============//
+
+
 
   //============= Diffuse =============//
   //If the surface is diffuse (no smoothness)
-  if(triangles[current.triangleIndex].smoothness == 0.0f)
+  if(triangles[current.triangleIndex].smoothness == 0.0f || castDiffuseRay)
   {
     //indirectlight comes from sampling
     vec3 indirectLight;
@@ -934,22 +960,11 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
   float randY;
   float randZ;
 
-  // double theta = 0, phi = 0;
-  // for(int i = 0; i < nSample; i++) {  
-  //   theta = 2*PI*irand(0,1);
-  //   // corrrect
-  //   phi = acos(2*irand(0,1)-1.0);
-  //   // incorrect
-  //   //phi = PI*irand(0,1);
-  //   x[i] = cos(theta)*sin(phi);
-  //   y[i] = sin(theta)*sin(phi);
-  //   z[i] = cos(phi);
-  // }
-
   float theta = 0;
   float phi = 0;
   for(int i = 0; i < SPHERE_LIGHT_SAMPLES; i++)
   {
+    //Spherical sampling
     theta = ((float) rand() / (RAND_MAX)) * 2.0f * PI;
     phi = acos((((float) rand() / (RAND_MAX)) * 2.0f) - 1.0f);
 
@@ -961,13 +976,8 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
     randY = (randY*SPHERE_LIGHT_RADIUS*2.0f) - SPHERE_LIGHT_RADIUS;
     randZ = (randZ*SPHERE_LIGHT_RADIUS*2.0f) - SPHERE_LIGHT_RADIUS;
 
-    // randX = (((float) rand() / (RAND_MAX)) *AREA_LIGHT_RADIUS*2) - AREA_LIGHT_RADIUS;
-    // randY = (((float) rand() / (RAND_MAX)) *AREA_LIGHT_RADIUS*2) - AREA_LIGHT_RADIUS;
-
+    //Find light/ intersections
     vec4 samplePoint = lightPos + vec4(randX,randY,randZ,0);
-
-
-
 
 
     vec4 lightDir = samplePoint - intersection.position;
