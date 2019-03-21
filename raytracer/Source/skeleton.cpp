@@ -835,6 +835,8 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
   //============= Specularity =============//
   bool castDiffuseRay = false;
+  bool castSpecularRay = false;
+
   if(triangles[current.triangleIndex].smoothness < 1.0f && triangles[current.triangleIndex].smoothness > 0.0f)
   {
     //if 0.6, 60% chance of specular ray being cast, 40% of diffuse
@@ -845,12 +847,16 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     if(randNum <= smoothness)//do spec
     {
+      //Cast a specular ray, not a diffuse
+      // castDiffuseRay = true;
+      castSpecularRay = true;
+
       //============= Random Specular Sample =============//
       //Sample within specular radius
-      float specularSampleRadius = 0.2f;
+      float specularSampleRadius = 1.0f-smoothness;//0.2f;
       float randXOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
-      float randYOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
-      vec3 localDirectionOffset = vec3(randXOffset,randYOffset,0);
+      float randZOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+      vec3 localDirectionOffset = vec3(randXOffset,0,randZOffset);
 
       //Create local coordinate system of current triangle
       vec3 normal = Vec4ToVec3(triangles[current.triangleIndex].normal);
@@ -868,6 +874,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       vec3 incidentRay = Vec4ToVec3(current.position) - previous;
       vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
       vec3 reflectedRay = Reflect(incidentRay, normalVec3);
+      reflectedRay = normalize(reflectedRay);
 
       //Add offset to reflected ray
       vec3 specularRayVec3 = reflectedRay + globalDirectionOffset;
@@ -882,8 +889,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       //If there is an intersection
       if(isIntersection)
       {
+        vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+        float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+        BRDF = 1.0f;
+        // cout << BRDF << "\n";
         //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight) * triangles[current.triangleIndex].color);
+        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight) * triangles[current.triangleIndex].color * BRDF);
       }
       else//If there is no intersection, don't recurse anymore 
       {
@@ -972,18 +983,38 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   //   // result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
   //   result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
   // }
-
+  //In all cases, we sample the light (at maximum importance)
   if(isAreaLight)//arealight
   {
     result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
   }
   else//pointlight
   {
-    result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+    //if we're casting a specular ray
+    if(castSpecularRay)
+    {
+      //Find reflected ray
+      vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
+      vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
+      vec3 reflectedRay = normalize(Reflect(incidentRay, normalVec3));
+
+      //Find view direction
+      vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+
+      //Compute direct light
+      // cout << (glm::dot(viewDirection,reflectedRay)) << "\n";
+      float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+      BRDF = 1.0f;
+
+      result += ( ((DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color)) * BRDF   );
+    }
+    else  //if we are casting a diffuse ray
+    {
+      result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+    }
   }
   //============= End Direct Lighting =============//
   
-
 
   //Return result
   return result;
