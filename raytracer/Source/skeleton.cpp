@@ -22,9 +22,11 @@ using glm::mat4;
 #define PI 3.14159265
 #define RAYDEPTH 5
 #define DIFFUSE_SAMPLES 1000000000
-#define LIGHT_POWER 8.0f
+#define LIGHT_POWER 7.0f
+#define AREA_LIGHT_RADIUS 0.4f
+#define AREA_LIGHT_SAMPLES 10
 // #define FOCAL_SPHERE_RADIUS 250.0f
-#define APERTURE 0.09f
+#define APERTURE 0.0f
 // #define isAAOn false
 
 //============= Global Variables =============//
@@ -79,10 +81,10 @@ struct Intersection
 //============= Function Defs =============//
 #pragma region FunctionDefs
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
-                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad);
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                            int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn, 
-                           vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad);
+                           vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -90,8 +92,10 @@ bool ClosestIntersection(
   Intersection& closestIntersection);
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
                   vec3& lightColour, vector<Triangle>& triangles);
+vec3 AreaLightSample( Intersection& intersection, vec4& lightPos, 
+                        vec3& lightColour, vector<Triangle>& triangles );
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight );
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool &isAreaLight );
 void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
 vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
 vec3 Reflect(const vec3 &incident, const vec3 &normal);
@@ -157,6 +161,8 @@ int main( int argc, char* argv[] )
 
   bool isAAOn = false;
 
+  bool isAreaLight = false;
+
   //Set up array of pixel vals
   vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT];
   int sampleCount = 1;
@@ -167,7 +173,7 @@ int main( int argc, char* argv[] )
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad);
+    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight);
 
     //Rotation
     mat4 invCameraMatrix = glm::inverse(cameraMatrix);
@@ -183,7 +189,7 @@ int main( int argc, char* argv[] )
     lightPos = invCameraMatrix * originalLightPos;
 
     
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad);
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight);
 
 
     SDL_Renderframe(screen);
@@ -201,7 +207,7 @@ int main( int argc, char* argv[] )
 //============= Draw =============//
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn, 
-                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad)
+                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight)
 {
   if(sampleCount == DIFFUSE_SAMPLES) {return;}
   /* Clear buffer */
@@ -396,7 +402,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
               isSampleDirectLight = false;
             }
 
-            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight);
+            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight);
 
             // vec3 colour = pathTracedLight;// * intersectedTriangle.color;
 
@@ -467,7 +473,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           }
           
           //Path trace the light
-          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight);
+          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight);
 
           //Accumulate
           screenAccumulator[col][row] += pathTracedLight;
@@ -488,7 +494,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 //============= Update =============//
 /*Place updates of parameters here*/
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
-                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad)
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight)
 {
   // static int t = SDL_GetTicks();
   /* Compute frame time */
@@ -594,6 +600,13 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
       }
     }
 
+    //Toggle arealight/pointlight
+    if( e.key.keysym.scancode == SDL_SCANCODE_G)
+    {
+      isAreaLight = !isAreaLight;
+    }
+
+    //Move focalsphereradius
     if (e.key.keysym.scancode == SDL_SCANCODE_O)
     {
       focalSphereRad += 0.2f;
@@ -765,7 +778,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 
 //current is the point we want to find lighting for; previous is where we cast a ray from to find this point.
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight )
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool& isAreaLight )
 {
   //============= Russian Roulette =============//
   int chamberNumber = 10;
@@ -805,7 +818,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     if(isIntersection)
     {
       //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true) * triangles[current.triangleIndex].color);
+      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight) * triangles[current.triangleIndex].color);
     }
     else//If there is no intersection, don't recurse anymore 
     {
@@ -861,7 +874,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
 
       float cosTheta = rand1;
-      indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true)*cosTheta*0.5f);
+      indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight)*cosTheta*0.5f); //0.5f is the attenuation factor
     }
     else//If there is no intersection, do nothing
     {
@@ -886,15 +899,85 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
   //Direct lighting
   // if(isSampleDirectLight)
-  if(true)
+  //============= Direct Lighting =============//
+  // if(true)
+  // {
+  //   // float temp = 2.0f * PI;
+  //   // result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+  //   result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+  // }
+
+  if(isAreaLight)//arealight
   {
-    // float temp = 2.0f * PI;
+    result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+  }
+  else//pointlight
+  {
     result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
   }
+  //============= End Direct Lighting =============//
+  
 
 
   //Return result
   return result;
+}
+
+vec3 AreaLightSample( Intersection& intersection, vec4& lightPos, 
+                        vec3& lightColour, vector<Triangle>& triangles )
+{
+  //============= Find Hits to Area Light =============//
+  int hits = 0;
+
+  //sample AREA_LIGHT_SAMPLES points on disc
+  float randX;
+  float randY;
+  for(int i = 0; i < AREA_LIGHT_SAMPLES; i++)
+  {
+    randX = (((float) rand() / (RAND_MAX)) *AREA_LIGHT_RADIUS*2) - AREA_LIGHT_RADIUS;
+    randY = (((float) rand() / (RAND_MAX)) *AREA_LIGHT_RADIUS*2) - AREA_LIGHT_RADIUS;
+
+    vec4 samplePoint = lightPos + vec4(randX,randY,0,0);
+    vec4 lightDir = samplePoint - intersection.position;
+    vec4 lightDirNormalised = normalize(samplePoint - intersection.position);
+
+    float lightDist = glm::length(lightDir);
+
+    Intersection lightIntersection;
+    bool intersectionFound = ClosestIntersection(intersection.position,lightDirNormalised,triangles,lightIntersection);
+    
+    //If no intersection found, then we hit the light
+    if(!intersectionFound)
+    {
+      hits+=1;
+    }
+    //If intersection found, but intersection is in or beyond light, then we hit the light
+    else if(glm::length(lightIntersection.position - intersection.position) >= lightDist)
+    {
+      hits +=1;
+    }
+  }//end random sample hit counting
+
+  //============= Calcuate power =============//
+  float proportionHits = (float)hits / (float)AREA_LIGHT_SAMPLES;
+
+  // Light colour is P
+  vec3 P = lightColour * proportionHits;
+  // Get normal to triangle
+  vec4 nNorm = normalize(triangles[intersection.triangleIndex].normal);
+  // r is vector from intersection point to light source
+  vec4 r  = lightPos - intersection.position;
+  vec4 rNorm = normalize(r);
+
+  //Compute power per area B
+  float A = 4.0f * M_PI * ( pow(glm::length(r),2.0f) );
+
+  vec3 B = vec3(P.x/A,P.y/A,P.z/A);
+ 
+  //Compute power per real surface D
+  vec3 D = B * max(glm::dot (rNorm,nNorm) , 0.0f);
+
+  return D;
 }
 
 
