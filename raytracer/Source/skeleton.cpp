@@ -201,12 +201,17 @@ int main( int argc, char* argv[] )
 
   //============= SPHERES =============//
   vector<Sphere> spheres;
+  vector<Sphere> originalSpheres;
 
 	spheres.clear();
 	spheres.reserve( 5*2*3 );
 
-  vec4 centreTEMP(0.0f,0.0f,0.0f,1.0f);
-  spheres.push_back( Sphere(centreTEMP,0.5f,vec3(0.75f,0.25f,0.25f), vec3(0.0f,0.0f,0.0f),0.0f) );
+  originalSpheres.clear();
+  originalSpheres.reserve( 5*2*3 );
+
+  vec4 centreTEMP(0.0f,0.0f, 0.0f,1.0f);
+  spheres.push_back( Sphere(centreTEMP,0.1f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f) );
+  originalSpheres.push_back( Sphere(centreTEMP,0.1f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f) );
 
 
   //Update and draw
@@ -219,10 +224,16 @@ int main( int argc, char* argv[] )
     
     for (int t = 0; t < triangles.size(); t++)
     {
+      // cout << triangles[t].v0 <<"\n";
       triangles[t].v0 = invCameraMatrix * originalTriangles[t].v0;
       triangles[t].v1 = invCameraMatrix * originalTriangles[t].v1;
       triangles[t].v2 = invCameraMatrix * originalTriangles[t].v2;
       triangles[t].ComputeNormal();
+    }
+
+    for (int s = 0; s < spheres.size(); s++)
+    {
+      spheres[s].centre = invCameraMatrix * originalSpheres[s].centre;
     }
 
     lightPos = invCameraMatrix * originalLightPos;
@@ -428,7 +439,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           if (isIntersections[i])
           {
             //Get triangle from triangles
-            Triangle intersectedTriangle = triangles[closestIntersections[i].triangleIndex];
+            // Triangle intersectedTriangle = triangles[closestIntersections[i].triangleIndex];
 
             //Only sample direct light for 0th sample
             bool isSampleDirectLight;
@@ -492,13 +503,14 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           vec4(randX,randY,0.0f,1.0f),
           direction,
           triangles,
-          closestIntersection,spheres);
+          closestIntersection,
+          spheres);
 
         //If an intersection occurs
         if (intersect)
         {
           //Get triangle from triangles
-          Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
+          // Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
 
           //Only sample direct light for 0th sample
           bool isSampleDirectLight;
@@ -825,9 +837,11 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
   if(intersection.triangleIndex !=-1)
   {
     nNorm = normalize(triangles[intersection.triangleIndex].normal);
+    // return vec3(0,0,0);
   }
   else if(intersection.sphereIndex!= -1)
   {
+    // cout <<"sphere\n";
     nNorm = glm::normalize(intersection.position - spheres[intersection.sphereIndex].centre);
   }
 
@@ -1128,6 +1142,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   #pragma region SPHERES
   if(current.sphereIndex != -1)
   {
+    // cout << "entered\n";
     //============= Smoothness/Mirror =============//
     //If there is any smoothness (for reflectance)
     if(spheres[current.sphereIndex].smoothness == 1.0f)
@@ -1293,7 +1308,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       indirectLight = (indirectLight/PDF);
 
 
-      //Backtrace light from the (non-reflective) surface
+      // Backtrace light from the (non-reflective) surface
       result += (indirectLight) * spheres[current.sphereIndex].color;
     }
     //============= End Diffuse =============//
@@ -1308,12 +1323,6 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     //Direct lighting
     // if(isSampleDirectLight)
     //============= Direct Lighting =============//
-    // if(true)
-    // {
-    //   // float temp = 2.0f * PI;
-    //   // result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
-    //   result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
-    // }
     //In all cases, we sample the light (at maximum importance)
     if(isAreaLight)//arealight
     {
@@ -1342,7 +1351,9 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       }
       else  //if we are casting a diffuse ray
       {
+        // cout << "entered\n";
         result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres ) * spheres[current.sphereIndex].color));
+
       }
     }
     //============= End Direct Lighting =============//
