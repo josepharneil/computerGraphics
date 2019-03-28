@@ -210,7 +210,7 @@ int main( int argc, char* argv[] )
   originalSpheres.reserve( 5*2*3 );
 
   vec4 centreTEMP(0.0f,0.0f, -0.5f,1.0f);
-  Sphere mySphere = Sphere(centreTEMP,0.2f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f);
+  Sphere mySphere = Sphere(centreTEMP,0.1f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f);
   spheres.push_back( mySphere );
   originalSpheres.push_back( mySphere );
 
@@ -236,6 +236,8 @@ int main( int argc, char* argv[] )
     {
       spheres[s].centre = invCameraMatrix * originalSpheres[s].centre;
     }
+
+    // cout << spheres[0].centre << "\n";
 
     lightPos = invCameraMatrix * originalLightPos;
 
@@ -485,9 +487,12 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           focalLength,
           1.0f);
 
+        
         //Normalise direction of ray
         direction = normalize(direction);
-
+        // if (/col == (SCREEN_WIDTH/2) && row == (SCREEN_HEIGHT/2)) {
+          // cout << direction << endl;
+        // }
         //Get focal length vector
         vec4 focalPoint = direction * focalSphereRad;
         focalPoint.w = 1.0f;
@@ -497,26 +502,36 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         float randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
 
         //New direction
-        direction = normalize(focalPoint - vec4(randX,randY,0.0f,0.0f));
+        //direction = normalize(focalPoint - vec4(randX,randY,0.0f,0.0f));
+
 
         //Compute ClosestIntersection
         bool intersect = ClosestIntersection(
-          vec4(randX,randY,0.0f,1.0f),
+          vec4(0,0,0.0f,1.0f),
           direction,
           triangles,
           closestIntersection,
           spheres);
 
         // cout << spheres.size() << "\n";
+        
 
         //If an intersection occurs
         if (intersect)
         {
-
+          // cout << spheres.size() << "\n";
           //Get triangle from triangles
           // Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
+          // if(closestIntersection.triangleIndex != -1)
+          // {
+          //   PutPixelSDL(screen, col, row, vec3(0.25f,0.0f,0.25f));
+          // }
+          // if(closestIntersection.sphereIndex != -1)
+          // {
+          //   PutPixelSDL(screen, col, row, vec3(1.0f,1.0f,1.0f));
+          // }
 
-          //Only sample direct light for 0th sample
+          // Only sample direct light for 0th sample
           bool isSampleDirectLight;
           if(sampleCount == 1)
           {
@@ -533,8 +548,11 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           //Accumulate
           screenAccumulator[col][row] += pathTracedLight;
 
+          // cout << cameraPos << "\n";
+
           //Average over #samples
           vec3 currentColour = vec3(screenAccumulator[col][row].x/sampleCount,screenAccumulator[col][row].y/sampleCount,screenAccumulator[col][row].z/sampleCount);
+          
           //set to colour of that triangle
           PutPixelSDL(screen, col, row, currentColour);
         }
@@ -728,7 +746,7 @@ bool ClosestIntersection(
 
   //============= Triangles =============//
   //For each triangle
-  for (int i = 0; i < 0; i++)
+  for (int i = 0; i < triangles.size(); i++)
   {
     Triangle triangle = triangles[i];
 
@@ -774,24 +792,32 @@ bool ClosestIntersection(
         minDist = t;
       }
     }
+    // return result;
   }
-
+  //cout << dir << endl;
   //============= Spheres =============//
   //For each sphere
-  for(int i = 0; i < spheres.size();i++)
+  for(int i = 0; i < spheres.size(); i++)
   {
+    // cout << spheres[i].centre;
     float t0,t1;
     vec4 L = spheres[i].centre - start;
+    // if (abs(dir.x) < 0.01f && abs(dir.y) < 0.01f)
+      // cout << spheres[i].centre << " " << start << " " << dir << endl;
     float tca = glm::dot(L,dir);
-    if(tca < 0) 
+    // cout << glm::dot(dir, dir) << "\n";
+    if(tca < 0.0f)
     {
       continue;
     }
     float d2 = glm::dot(L,L) - (tca * tca); 
-    if (d2 > (spheres[i].radius* spheres[i].radius))
+    
+    // cout << d2<< "cont\n";
+    if (d2 > (spheres[i].radius * spheres[i].radius))
     {
       continue;
     }
+    //cout << (tca * tca) << "\n";
     float thc = sqrt((spheres[i].radius* spheres[i].radius) - d2); 
     t0 = tca - thc; 
     t1 = tca + thc; 
@@ -801,10 +827,10 @@ bool ClosestIntersection(
       std::swap(t0, t1);
     }
 
-    if (t0 < 0) 
+    if (t0 < 0.0f) 
     { 
       t0 = t1; // if t0 is negative, let's use t1 instead 
-      if (t0 < 0) 
+      if (t0 < 0.0f) 
       {
         continue;
       } // both t0 and t1 are negative 
