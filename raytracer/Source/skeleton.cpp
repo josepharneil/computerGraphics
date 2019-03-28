@@ -99,6 +99,10 @@ class Sphere
   Sphere( vec4 centre, float radius, vec3 color, vec3 emissive, float smoothness )
 		: centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness){}
 };
+
+
+
+
 #pragma endregion Structures
 
 //============= Function Defs =============//
@@ -817,7 +821,17 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
   // Light colour is P
   vec3 P = lightColour;
   // Get normal to triangle
-  vec4 nNorm = normalize(triangles[intersection.triangleIndex].normal);
+  vec4 nNorm;
+  if(intersection.triangleIndex !=-1)
+  {
+    nNorm = normalize(triangles[intersection.triangleIndex].normal);
+  }
+  else if(intersection.sphereIndex!= -1)
+  {
+    nNorm = glm::normalize(intersection.position - spheres[intersection.sphereIndex].centre);
+  }
+
+  
   // r is vector from intersection point to light source
   vec4 r  = lightPos - intersection.position;
   vec4 rNorm = normalize(r);
@@ -887,221 +901,456 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   //Initialise result to be returned
   vec3 result = vec3(0.0f,0.0f,0.0f);
 
-  //============= Smoothness/Mirror =============//
-  //If there is any smoothness (for reflectance)
-  if(triangles[current.triangleIndex].smoothness == 1.0f)
+  //============= Triangles =============//
+  #pragma region TRIANGLES
+  if(current.triangleIndex != -1)
   {
-    //Find reflected ray from indidence ray and normal
-    vec3 incidentRay = Vec4ToVec3(current.position) - previous;
-    vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
-    vec3 reflectedRay = Reflect(incidentRay, normalVec3);
-    vec4 reflectedRayV4 = Vec3ToHomogenous(reflectedRay);
-
-    //Find the next intersection of the reflected ray
-    Intersection nextIntersection;
-    bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres);
-
-    //If there is an intersection
-    if(isIntersection)
+    //============= Smoothness/Mirror =============//
+    //If there is any smoothness (for reflectance)
+    if(triangles[current.triangleIndex].smoothness == 1.0f)
     {
-      //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-      result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * triangles[current.triangleIndex].color);
-    }
-    else//If there is no intersection, don't recurse anymore 
-    {
-      //(effectively the reflected ray shoots into empty space)
-      // result += vec3(0.0f,0.0f,0.0f);
-    }
-
-    //If we want the mirror itself to have shadows, colour etc.
-    //Then backtrace light from the mirror surface
-    // result += (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
-    
-  }
-  //============= End Smoothness =============//
-
-  //============= Specularity =============//
-  bool castDiffuseRay = false;
-  bool castSpecularRay = false;
-
-  if(triangles[current.triangleIndex].smoothness < 1.0f && triangles[current.triangleIndex].smoothness > 0.0f)
-  {
-    //if 0.6, 60% chance of specular ray being cast, 40% of diffuse
-    float smoothness = triangles[current.triangleIndex].smoothness;
-
-    //Random number from 0->1
-    float randNum = ((float) rand() / (RAND_MAX));
-
-    if(randNum <= smoothness)//do spec
-    {
-      //Cast a specular ray, not a diffuse
-      // castDiffuseRay = true;
-      castSpecularRay = true;
-
-      //============= Random Specular Sample =============//
-      //Sample within specular radius
-      float specularSampleRadius = 1.0f-smoothness;//0.2f;
-      float randXOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
-      float randZOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
-      vec3 localDirectionOffset = vec3(randXOffset,0,randZOffset);
-
-      //Create local coordinate system of current triangle
-      vec3 normal = Vec4ToVec3(triangles[current.triangleIndex].normal);
-      vec3 Nt;
-      vec3 Nb;
-      CreateCoordinateSystem(normal,Nt,Nb);
-
-      //convert to local offset to global coordinates
-      vec3 globalDirectionOffset = vec3(localDirectionOffset.x * Nb.x + localDirectionOffset.y * normal.x + localDirectionOffset.z * Nt.x, 
-                                        localDirectionOffset.x * Nb.y + localDirectionOffset.y * normal.y + localDirectionOffset.z * Nt.y, 
-                                        localDirectionOffset.x * Nb.z + localDirectionOffset.y * normal.z + localDirectionOffset.z * Nt.z);
-
-      //============= Reflected Ray =============//
       //Find reflected ray from indidence ray and normal
       vec3 incidentRay = Vec4ToVec3(current.position) - previous;
       vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
       vec3 reflectedRay = Reflect(incidentRay, normalVec3);
-      reflectedRay = normalize(reflectedRay);
+      vec4 reflectedRayV4 = Vec3ToHomogenous(reflectedRay);
 
-      //Add offset to reflected ray
-      vec3 specularRayVec3 = reflectedRay + globalDirectionOffset;
-      vec4 specularRay = Vec3ToHomogenous(specularRayVec3);
-
-
-      //============= Cast Ray/ Closest Intersection =============//
-      //Cast ray
+      //Find the next intersection of the reflected ray
       Intersection nextIntersection;
-      bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres);
+      bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres);
 
       //If there is an intersection
       if(isIntersection)
       {
-        vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
-        float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
-        BRDF = 1.0f;
-        // cout << BRDF << "\n";
         //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * triangles[current.triangleIndex].color * BRDF);
+        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * triangles[current.triangleIndex].color);
       }
       else//If there is no intersection, don't recurse anymore 
       {
         //(effectively the reflected ray shoots into empty space)
         // result += vec3(0.0f,0.0f,0.0f);
       }
+
+      //If we want the mirror itself to have shadows, colour etc.
+      //Then backtrace light from the mirror surface
+      // result += (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
+      
     }
-    else//do diffuse
+    //============= End Smoothness =============//
+
+    //============= Specularity =============//
+    bool castDiffuseRay = false;
+    bool castSpecularRay = false;
+
+    if(triangles[current.triangleIndex].smoothness < 1.0f && triangles[current.triangleIndex].smoothness > 0.0f)
     {
-      castDiffuseRay = true;
+      //if 0.6, 60% chance of specular ray being cast, 40% of diffuse
+      float smoothness = triangles[current.triangleIndex].smoothness;
+
+      //Random number from 0->1
+      float randNum = ((float) rand() / (RAND_MAX));
+
+      if(randNum <= smoothness)//do spec
+      {
+        //Cast a specular ray, not a diffuse
+        // castDiffuseRay = true;
+        castSpecularRay = true;
+
+        //============= Random Specular Sample =============//
+        //Sample within specular radius
+        float specularSampleRadius = 1.0f-smoothness;//0.2f;
+        float randXOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+        float randZOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+        vec3 localDirectionOffset = vec3(randXOffset,0,randZOffset);
+
+        //Create local coordinate system of current triangle
+        vec3 normal = Vec4ToVec3(triangles[current.triangleIndex].normal);
+        vec3 Nt;
+        vec3 Nb;
+        CreateCoordinateSystem(normal,Nt,Nb);
+
+        //convert to local offset to global coordinates
+        vec3 globalDirectionOffset = vec3(localDirectionOffset.x * Nb.x + localDirectionOffset.y * normal.x + localDirectionOffset.z * Nt.x, 
+                                          localDirectionOffset.x * Nb.y + localDirectionOffset.y * normal.y + localDirectionOffset.z * Nt.y, 
+                                          localDirectionOffset.x * Nb.z + localDirectionOffset.y * normal.z + localDirectionOffset.z * Nt.z);
+
+        //============= Reflected Ray =============//
+        //Find reflected ray from indidence ray and normal
+        vec3 incidentRay = Vec4ToVec3(current.position) - previous;
+        vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
+        vec3 reflectedRay = Reflect(incidentRay, normalVec3);
+        reflectedRay = normalize(reflectedRay);
+
+        //Add offset to reflected ray
+        vec3 specularRayVec3 = reflectedRay + globalDirectionOffset;
+        vec4 specularRay = Vec3ToHomogenous(specularRayVec3);
+
+
+        //============= Cast Ray/ Closest Intersection =============//
+        //Cast ray
+        Intersection nextIntersection;
+        bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres);
+
+        //If there is an intersection
+        if(isIntersection)
+        {
+          vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+          float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+          BRDF = 1.0f;
+          // cout << BRDF << "\n";
+          //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
+          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * triangles[current.triangleIndex].color * BRDF);
+        }
+        else//If there is no intersection, don't recurse anymore 
+        {
+          //(effectively the reflected ray shoots into empty space)
+          // result += vec3(0.0f,0.0f,0.0f);
+        }
+      }
+      else//do diffuse
+      {
+        castDiffuseRay = true;
+      }
     }
+    //=============End Specularity =============//
+
+
+
+    //============= Diffuse =============//
+    //If the surface is diffuse (no smoothness)
+    if(triangles[current.triangleIndex].smoothness == 0.0f || castDiffuseRay)
+    {
+      //indirectlight comes from sampling
+      vec3 indirectLight;
+
+      //Find local coordinate system at the intersection
+      vec3 normal = Vec4ToVec3(triangles[current.triangleIndex].normal);
+      vec3 Nt;
+      vec3 Nb;
+      CreateCoordinateSystem(normal,Nt,Nb);
+
+      float PDF = 1.0f/(2.0f*PI);
+
+
+      //Sample two random numbers from 0->1
+      // srand(time( NULL ));
+      float rand1 = ((float) rand() / (RAND_MAX));
+      float rand2 = ((float) rand() / (RAND_MAX));
+
+      //Local hemispherical sampling
+      vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
+
+      //Transform to global
+      vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
+                                LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
+                                LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
+      
+      //"Cast" ray, ie., find ClosestIntersection
+      Intersection nextIntersection;
+      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres);
+
+      //If there is an interesction, recurse at +1 depth
+      if(isIntersect)
+      {
+        // float cosTheta = 2.0f * PI * rand2;
+        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
+
+        float cosTheta = rand1;
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosTheta*0.5f); //0.5f is the attenuation factor
+      }
+      else//If there is no intersection, do nothing
+      {
+        //do nothing
+      }
+
+      //Div. indirect light by pdf
+      indirectLight = (indirectLight/PDF);
+
+
+      //Backtrace light from the (non-reflective) surface
+      result += (indirectLight) * triangles[current.triangleIndex].color;
+    }
+    //============= End Diffuse =============//
+
+
+
+    //============= Emission =============//
+    result += triangles[current.triangleIndex].emissive;
+    //============= End Emission =============//
+
+
+    //Direct lighting
+    // if(isSampleDirectLight)
+    //============= Direct Lighting =============//
+    // if(true)
+    // {
+    //   // float temp = 2.0f * PI;
+    //   // result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+    //   result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+    // }
+    //In all cases, we sample the light (at maximum importance)
+    if(isAreaLight)//arealight
+    {
+      result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color));
+    }
+    else//pointlight
+    {
+      //if we're casting a specular ray
+      if(castSpecularRay)
+      {
+        //Find reflected ray
+        vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
+        vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
+        vec3 reflectedRay = normalize(Reflect(incidentRay, normalVec3));
+
+        //Find view direction
+        vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+
+        //Compute direct light
+        // cout << (glm::dot(viewDirection,reflectedRay)) << "\n";
+        float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+        BRDF = 1.0f;
+
+        result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres ) * triangles[current.triangleIndex].color)) * BRDF   );
+      }
+      else  //if we are casting a diffuse ray
+      {
+        result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres ) * triangles[current.triangleIndex].color));
+      }
+    }
+    //============= End Direct Lighting =============//
   }
-  //=============End Specularity =============//
+  #pragma endregion TRIANGLES
+  //============= End Triangles =============//
 
 
-
-  //============= Diffuse =============//
-  //If the surface is diffuse (no smoothness)
-  if(triangles[current.triangleIndex].smoothness == 0.0f || castDiffuseRay)
+  //============= Spheres =============//
+  #pragma region SPHERES
+  if(current.sphereIndex != -1)
   {
-    //indirectlight comes from sampling
-    vec3 indirectLight;
-
-    //Find local coordinate system at the intersection
-    vec3 normal = Vec4ToVec3(triangles[current.triangleIndex].normal);
-    vec3 Nt;
-    vec3 Nb;
-    CreateCoordinateSystem(normal,Nt,Nb);
-
-    float PDF = 1.0f/(2.0f*PI);
-
-
-    //Sample two random numbers from 0->1
-    // srand(time( NULL ));
-    float rand1 = ((float) rand() / (RAND_MAX));
-    float rand2 = ((float) rand() / (RAND_MAX));
-
-    //Local hemispherical sampling
-    vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
-
-    //Transform to global
-    vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
-                               LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
-                               LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
-    
-    //"Cast" ray, ie., find ClosestIntersection
-    Intersection nextIntersection;
-    bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres);
-
-    //If there is an interesction, recurse at +1 depth
-    if(isIntersect)
+    //============= Smoothness/Mirror =============//
+    //If there is any smoothness (for reflectance)
+    if(spheres[current.sphereIndex].smoothness == 1.0f)
     {
-      // float cosTheta = 2.0f * PI * rand2;
-      // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
+      //Find reflected ray from indidence ray and normal
+      vec3 incidentRay = Vec4ToVec3(current.position) - previous;
+      vec4 normalVec4 = glm::normalize(current.position - spheres[current.sphereIndex].centre);
+      vec3 normalVec3 = Vec4ToVec3(normalVec4);
+      vec3 reflectedRay = Reflect(incidentRay, normalVec3);
+      vec4 reflectedRayV4 = Vec3ToHomogenous(reflectedRay);
 
-      float cosTheta = rand1;
-      indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosTheta*0.5f); //0.5f is the attenuation factor
+      //Find the next intersection of the reflected ray
+      Intersection nextIntersection;
+      bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres);
+
+      //If there is an intersection
+      if(isIntersection)
+      {
+        //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
+        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * spheres[current.sphereIndex].color);
+      }
+      else//If there is no intersection, don't recurse anymore 
+      {
+        //(effectively the reflected ray shoots into empty space)
+        // result += vec3(0.0f,0.0f,0.0f);
+      }
+
+      //If we want the mirror itself to have shadows, colour etc.
+      //Then backtrace light from the mirror surface
+      // result += (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
+      
     }
-    else//If there is no intersection, do nothing
+    //============= End Smoothness =============//
+
+    //============= Specularity =============//
+    bool castDiffuseRay = false;
+    bool castSpecularRay = false;
+
+    if(spheres[current.sphereIndex].smoothness < 1.0f && spheres[current.sphereIndex].smoothness > 0.0f)
     {
-      //do nothing
+      //if 0.6, 60% chance of specular ray being cast, 40% of diffuse
+      float smoothness = spheres[current.sphereIndex].smoothness;
+
+      //Random number from 0->1
+      float randNum = ((float) rand() / (RAND_MAX));
+
+      if(randNum <= smoothness)//do spec
+      {
+        //Cast a specular ray, not a diffuse
+        // castDiffuseRay = true;
+        castSpecularRay = true;
+
+        //============= Random Specular Sample =============//
+        //Sample within specular radius
+        float specularSampleRadius = 1.0f-smoothness;//0.2f;
+        float randXOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+        float randZOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+        vec3 localDirectionOffset = vec3(randXOffset,0,randZOffset);
+
+        //Create local coordinate system of current triangle
+        vec4 normalVec4 = glm::normalize(current.position - spheres[current.sphereIndex].centre);
+        vec3 normal = Vec4ToVec3(normalVec4);
+        vec3 Nt;
+        vec3 Nb;
+        CreateCoordinateSystem(normal,Nt,Nb);
+
+        //convert to local offset to global coordinates
+        vec3 globalDirectionOffset = vec3(localDirectionOffset.x * Nb.x + localDirectionOffset.y * normal.x + localDirectionOffset.z * Nt.x, 
+                                          localDirectionOffset.x * Nb.y + localDirectionOffset.y * normal.y + localDirectionOffset.z * Nt.y, 
+                                          localDirectionOffset.x * Nb.z + localDirectionOffset.y * normal.z + localDirectionOffset.z * Nt.z);
+
+        //============= Reflected Ray =============//
+        //Find reflected ray from indidence ray and normal
+        vec3 incidentRay = Vec4ToVec3(current.position) - previous;
+        vec3 normalVec3 = normal;
+        vec3 reflectedRay = Reflect(incidentRay, normalVec3);
+        reflectedRay = normalize(reflectedRay);
+
+        //Add offset to reflected ray
+        vec3 specularRayVec3 = reflectedRay + globalDirectionOffset;
+        vec4 specularRay = Vec3ToHomogenous(specularRayVec3);
+
+
+        //============= Cast Ray/ Closest Intersection =============//
+        //Cast ray
+        Intersection nextIntersection;
+        bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres);
+
+        //If there is an intersection
+        if(isIntersection)
+        {
+          vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+          float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+          BRDF = 1.0f;
+          // cout << BRDF << "\n";
+          //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
+          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * spheres[current.sphereIndex].color * BRDF);
+        }
+        else//If there is no intersection, don't recurse anymore 
+        {
+          //(effectively the reflected ray shoots into empty space)
+          // result += vec3(0.0f,0.0f,0.0f);
+        }
+      }
+      else//do diffuse
+      {
+        castDiffuseRay = true;
+      }
     }
-
-    //Div. indirect light by pdf
-    indirectLight = (indirectLight/PDF);
+    //=============End Specularity =============//
 
 
-    //Backtrace light from the (non-reflective) surface
-    result += (indirectLight) * triangles[current.triangleIndex].color;
+
+    //============= Diffuse =============//
+    //If the surface is diffuse (no smoothness)
+    if(spheres[current.sphereIndex].smoothness == 0.0f || castDiffuseRay)
+    {
+      //indirectlight comes from sampling
+      vec3 indirectLight;
+
+      //Find local coordinate system at the intersection
+      vec4 normalVec4 = glm::normalize(current.position - spheres[current.sphereIndex].centre);
+      vec3 normal = Vec4ToVec3(normalVec4);
+      vec3 Nt;
+      vec3 Nb;
+      CreateCoordinateSystem(normal,Nt,Nb);
+
+      float PDF = 1.0f/(2.0f*PI);
+
+
+      //Sample two random numbers from 0->1
+      // srand(time( NULL ));
+      float rand1 = ((float) rand() / (RAND_MAX));
+      float rand2 = ((float) rand() / (RAND_MAX));
+
+      //Local hemispherical sampling
+      vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
+
+      //Transform to global
+      vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
+                                LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
+                                LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
+      
+      //"Cast" ray, ie., find ClosestIntersection
+      Intersection nextIntersection;
+      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres);
+
+      //If there is an interesction, recurse at +1 depth
+      if(isIntersect)
+      {
+        // float cosTheta = 2.0f * PI * rand2;
+        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
+
+        float cosTheta = rand1;
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosTheta*0.5f); //0.5f is the attenuation factor
+      }
+      else//If there is no intersection, do nothing
+      {
+        //do nothing
+      }
+
+      //Div. indirect light by pdf
+      indirectLight = (indirectLight/PDF);
+
+
+      //Backtrace light from the (non-reflective) surface
+      result += (indirectLight) * spheres[current.sphereIndex].color;
+    }
+    //============= End Diffuse =============//
+
+
+
+    //============= Emission =============//
+    result += spheres[current.sphereIndex].emissive;
+    //============= End Emission =============//
+
+
+    //Direct lighting
+    // if(isSampleDirectLight)
+    //============= Direct Lighting =============//
+    // if(true)
+    // {
+    //   // float temp = 2.0f * PI;
+    //   // result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+    //   result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
+    // }
+    //In all cases, we sample the light (at maximum importance)
+    if(isAreaLight)//arealight
+    {
+      result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * spheres[current.sphereIndex].color));
+    }
+    else//pointlight
+    {
+      //if we're casting a specular ray
+      if(castSpecularRay)
+      {
+        //Find reflected ray
+        vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
+        vec4 normalVec4 = glm::normalize(current.position - spheres[current.sphereIndex].centre);
+        vec3 normalVec3 = Vec4ToVec3(normalVec4);
+        vec3 reflectedRay = normalize(Reflect(incidentRay, normalVec3));
+
+        //Find view direction
+        vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+
+        //Compute direct light
+        // cout << (glm::dot(viewDirection,reflectedRay)) << "\n";
+        float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+        BRDF = 1.0f;
+
+        result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres ) * spheres[current.sphereIndex].color)) * BRDF   );
+      }
+      else  //if we are casting a diffuse ray
+      {
+        result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres ) * spheres[current.sphereIndex].color));
+      }
+    }
+    //============= End Direct Lighting =============//
   }
-  //============= End Diffuse =============//
 
 
+  #pragma endregion SPHERES
 
-  //============= Emission =============//
-  result += triangles[current.triangleIndex].emissive;
-  //============= End Emission =============//
-
-
-  //Direct lighting
-  // if(isSampleDirectLight)
-  //============= Direct Lighting =============//
-  // if(true)
-  // {
-  //   // float temp = 2.0f * PI;
-  //   // result += ( (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
-  //   result += ( (AreaLightSample( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color));
-  // }
-  //In all cases, we sample the light (at maximum importance)
-  if(isAreaLight)//arealight
-  {
-    result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color));
-  }
-  else//pointlight
-  {
-    //if we're casting a specular ray
-    if(castSpecularRay)
-    {
-      //Find reflected ray
-      vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
-      vec3 normalVec3 = Vec4ToVec3(triangles[current.triangleIndex].normal);
-      vec3 reflectedRay = normalize(Reflect(incidentRay, normalVec3));
-
-      //Find view direction
-      vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
-
-      //Compute direct light
-      // cout << (glm::dot(viewDirection,reflectedRay)) << "\n";
-      float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
-      BRDF = 1.0f;
-
-      result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres ) * triangles[current.triangleIndex].color)) * BRDF   );
-    }
-    else  //if we are casting a diffuse ray
-    {
-      result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres ) * triangles[current.triangleIndex].color));
-    }
-  }
-  //============= End Direct Lighting =============//
-  
 
   //Return result
   return result;
@@ -1163,8 +1412,17 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
 
   // Light colour is P
   vec3 P = lightColour * proportionHits;
-  // Get normal to triangle
-  vec4 nNorm = normalize(triangles[intersection.triangleIndex].normal);
+  vec4 nNorm;
+  if(intersection.triangleIndex != -1)
+  {
+    // Get normal to triangle
+    nNorm = normalize(triangles[intersection.triangleIndex].normal);
+  }
+  else if(intersection.sphereIndex != -1)
+  {
+    nNorm = glm::normalize(intersection.position - spheres[intersection.sphereIndex].centre);
+  }
+
   // r is vector from intersection point to light source
   vec4 r  = lightPos - intersection.position;
   vec4 rNorm = normalize(r);
