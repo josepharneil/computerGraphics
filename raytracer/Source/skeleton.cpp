@@ -209,9 +209,10 @@ int main( int argc, char* argv[] )
   originalSpheres.clear();
   originalSpheres.reserve( 5*2*3 );
 
-  vec4 centreTEMP(0.0f,0.0f, 0.0f,1.0f);
-  spheres.push_back( Sphere(centreTEMP,0.1f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f) );
-  originalSpheres.push_back( Sphere(centreTEMP,0.1f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f) );
+  vec4 centreTEMP(0.0f,0.0f, -0.5f,1.0f);
+  Sphere mySphere = Sphere(centreTEMP,0.2f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f);
+  spheres.push_back( mySphere );
+  originalSpheres.push_back( mySphere );
 
 
   //Update and draw
@@ -506,9 +507,12 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           closestIntersection,
           spheres);
 
+        // cout << spheres.size() << "\n";
+
         //If an intersection occurs
         if (intersect)
         {
+
           //Get triangle from triangles
           // Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
 
@@ -724,7 +728,7 @@ bool ClosestIntersection(
 
   //============= Triangles =============//
   //For each triangle
-  for (int i = 0; i < triangles.size(); i++)
+  for (int i = 0; i < 0; i++)
   {
     Triangle triangle = triangles[i];
 
@@ -810,7 +814,7 @@ bool ClosestIntersection(
     t = t0;
     if (t < minDist)
     {
-        // cout<<"sphere found" << "\n";
+        //cout<<"sphere found" << "\n";
         closestIntersection.position = vec4(start.x+t*dir.x, start.y+t*dir.y, start.z+t*dir.z, 1);
         closestIntersection.distance = t;
         closestIntersection.sphereIndex = i;
@@ -1319,7 +1323,6 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     result += spheres[current.sphereIndex].emissive;
     //============= End Emission =============//
 
-
     //Direct lighting
     // if(isSampleDirectLight)
     //============= Direct Lighting =============//
@@ -1351,7 +1354,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       }
       else  //if we are casting a diffuse ray
       {
-        // cout << "entered\n";
+        
         result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres ) * spheres[current.sphereIndex].color));
 
       }
