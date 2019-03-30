@@ -562,7 +562,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
           //Fog
           /*
-          currentColour *= fog
+          currentColour *= fogAmount;
           */
           
           //set to colour of that triangle
