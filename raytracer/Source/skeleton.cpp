@@ -40,7 +40,7 @@ bool quit;
 std::ostream &operator<<( std::ostream &os, vec4 const &v )
 {
   return os << "(" << v.x << ", " << v.y << ", " << v.z << ", " << v.w
-            << ")";
+            << ")";
 }
 
 std::ostream &operator<<( std::ostream &os, vec3 const &v )
@@ -50,11 +50,11 @@ std::ostream &operator<<( std::ostream &os, vec3 const &v )
 
 std::ostream &operator<<( std::ostream &os, mat4 const &m )
 {
-  glm::mat4 mt = transpose( m );
+  glm::mat4 mt = transpose( m );
   return os << mt[ 0 ] << endl
-            << mt[ 1 ] << endl
-            << mt[ 2 ] << endl
-            << mt[ 3 ];
+            << mt[ 1 ] << endl
+            << mt[ 2 ] << endl
+            << mt[ 3 ];
 }
 #pragma endregion
 
@@ -97,7 +97,7 @@ class Sphere
     float smoothness;
 
   Sphere( vec4 centre, float radius, vec3 color, vec3 emissive, float smoothness )
-    : centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness){}
+    : centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness){}
 };
 
 
@@ -143,7 +143,7 @@ int main( int argc, char* argv[] )
   quit = false;
 
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
-  t = SDL_GetTicks(); /*Set start value for timer.*/
+  t = SDL_GetTicks(); /*Set start value for timer.*/
 
   //Instantiate vector of triangles
   vector<Triangle> triangles;
