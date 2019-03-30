@@ -26,8 +26,9 @@ using glm::mat4;
 #define SPHERE_LIGHT_RADIUS 0.05f
 #define SPHERE_LIGHT_SAMPLES 10
 // #define FOCAL_SPHERE_RADIUS 250.0f
-#define APERTURE 0.0f//e.g. 0.2f
+#define APERTURE 0.1f//e.g. 0.1f
 // #define isAAOn false
+#define FOG_STRENGTH 0.1f
 
 //============= Global Variables =============//
 int timeT;
@@ -109,11 +110,11 @@ class Sphere
 //============= Function Defs =============//
 #pragma region FunctionDefs
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
-                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight);
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight,bool& isFog);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                            int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn, 
                            vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight,
-                           const vector<Sphere>& spheres);
+                           const vector<Sphere>& spheres,bool& isFog);
 bool ClosestIntersection(
   vec4 start,
   vec4 dir,
@@ -127,6 +128,8 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
                         vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool &isAreaLight,const vector<Sphere>& spheres );
 void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
 vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
+float FogAmount(const vec3 start,const vec3 end);
+float FogUnitCurveArea(float end, float start, float amplitude, float frequency);
 vec3 Refract(const vec3 &incidentRay, const vec3 &normal, const float &IoR);
 vec3 Reflect(const vec3 &incident, const vec3 &normal);
 void ResetScreenAccumulator(vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT]);
@@ -193,6 +196,10 @@ int main( int argc, char* argv[] )
   bool isAAOn = false;
 
   bool isAreaLight = false;
+  
+  bool isFog = true;
+
+  
 
   //Set up array of pixel vals
   vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT];
@@ -215,7 +222,7 @@ int main( int argc, char* argv[] )
   vec4 centreTEMP(0.3f,-0.2f, -0.3f,1.0f);
   Sphere mySphere = Sphere(centreTEMP,0.3f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,1.0f);
   vec4 centreTEMP2(0.2f,0.3f, -0.9f,1.0f);
-  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,1.3333f);
+  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(0.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,1.0f);
   spheres.push_back( mySphere );
   spheres.push_back( mySphere2 );
   originalSpheres.push_back( mySphere );
@@ -225,7 +232,7 @@ int main( int argc, char* argv[] )
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight);
+    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight,isFog);
 
     //Rotation
     mat4 invCameraMatrix = glm::inverse(cameraMatrix);
@@ -249,7 +256,7 @@ int main( int argc, char* argv[] )
     lightPos = invCameraMatrix * originalLightPos;
 
     
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight, spheres);
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight, spheres,isFog);
 
 
     SDL_Renderframe(screen);
@@ -267,7 +274,7 @@ int main( int argc, char* argv[] )
 //============= Draw =============//
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn, 
-                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight, const vector<Sphere>& spheres)
+                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight, const vector<Sphere>& spheres, bool& isFog)
 {
   if(sampleCount == DIFFUSE_SAMPLES) {return;}
   /* Clear buffer */
@@ -464,6 +471,16 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
             vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight,spheres);
 
+            if(isFog)
+            {            
+              //============= Fog =============//
+              float fogAmount = FogAmount(vec3(apertureSample[i].x,apertureSample[i].y,0.0f),Vec4ToVec3(closestIntersections[i].position));
+              vec3 fogColour = vec3(0.8f*fogAmount,0.8f*fogAmount,0.8f*fogAmount);
+              // cout << fogAmount << "\n";
+              colourTotal += fogColour;
+              //============= END Fog =============//
+            }
+
             // vec3 colour = pathTracedLight;// * intersectedTriangle.color;
 
             //Running colour total over whole pixel
@@ -560,10 +577,16 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           //Average over #samples
           vec3 currentColour = vec3(screenAccumulator[col][row].x/sampleCount,screenAccumulator[col][row].y/sampleCount,screenAccumulator[col][row].z/sampleCount);
 
-          //Fog
-          /*
-          currentColour *= fogAmount;
-          */
+          if(isFog)
+          {
+            //============= Fog =============//
+            float fogAmount = FogAmount(vec3(randX,randY,0.0f),Vec4ToVec3(closestIntersection.position));
+            vec3 fogColour = vec3(0.8f*fogAmount,0.8f*fogAmount,0.8f*fogAmount);
+            // cout << fogAmount << "\n";
+            currentColour += fogColour;
+          //============= END Fog =============//
+          }
+          
           
           //set to colour of that triangle
           PutPixelSDL(screen, col, row, currentColour);
@@ -576,10 +599,28 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
   sampleCount += 1;
 }
 
+float FogAmount(const vec3 start,const vec3 end)
+{
+  float distance = glm::length(start - end);
+  float baseAmount = distance * 0.1f;
+  float varyingAmount = 0.0f;//initialise
+  varyingAmount += FogUnitCurveArea(end.x,start.x,FOG_STRENGTH*0.6f,10.0f); //f was 0.6
+  varyingAmount += FogUnitCurveArea(end.y,start.y,FOG_STRENGTH*1.2f,11.0f);   //f was 1.2 
+  varyingAmount += FogUnitCurveArea(end.z,start.z,FOG_STRENGTH*0.9f,9.0f);   //f was 0.9
+  varyingAmount *= distance;
+  float resultAmount = baseAmount + varyingAmount;
+  return min(resultAmount,1.0f);
+}
+
+float FogUnitCurveArea(float end,float start,float amplitude,float frequency)
+{
+  return ((end - (cos(frequency * end)/frequency)) * amplitude) - ((start - (cos(frequency * start)/ frequency)) * amplitude);
+}
+
 //============= Update =============//
 /*Place updates of parameters here*/
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
-                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight)
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight, bool &isFog)
 {
   // static int t = SDL_GetTicks();
   /* Compute frame time */
@@ -698,9 +739,19 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
     {
       focalSphereRad += 0.2f;
     }
-      if (e.key.keysym.scancode == SDL_SCANCODE_L)
+    if (e.key.keysym.scancode == SDL_SCANCODE_L)
     {
       focalSphereRad -= 0.2f;
+    }
+
+    if (e.key.keysym.scancode == SDL_SCANCODE_L)
+    {
+      focalSphereRad -= 0.2f;
+    }
+
+    if (e.key.keysym.scancode == SDL_SCANCODE_Q)
+    {
+      isFog = !isFog;
     }
 
     //Restart sampling on any input
