@@ -22,11 +22,11 @@ using glm::mat4;
 #define PI 3.14159265
 #define RAYDEPTH 5
 #define DIFFUSE_SAMPLES 1000000000
-#define LIGHT_POWER 7.0f
+#define LIGHT_POWER 6.0f
 #define SPHERE_LIGHT_RADIUS 0.25f
 #define SPHERE_LIGHT_SAMPLES 10
 // #define FOCAL_SPHERE_RADIUS 250.0f
-#define APERTURE 0.0f
+#define APERTURE 0.0f//e.g. 0.2f
 // #define isAAOn false
 
 //============= Global Variables =============//
@@ -40,7 +40,7 @@ bool quit;
 std::ostream &operator<<( std::ostream &os, vec4 const &v )
 {
   return os << "(" << v.x << ", " << v.y << ", " << v.z << ", " << v.w
-	          << ")";
+            << ")";
 }
 
 std::ostream &operator<<( std::ostream &os, vec3 const &v )
@@ -50,11 +50,11 @@ std::ostream &operator<<( std::ostream &os, vec3 const &v )
 
 std::ostream &operator<<( std::ostream &os, mat4 const &m )
 {
-	glm::mat4 mt = transpose( m );
+  glm::mat4 mt = transpose( m );
   return os << mt[ 0 ] << endl
-	          << mt[ 1 ] << endl
-	          << mt[ 2 ] << endl
-	          << mt[ 3 ];
+            << mt[ 1 ] << endl
+            << mt[ 2 ] << endl
+            << mt[ 3 ];
 }
 #pragma endregion
 
@@ -82,9 +82,9 @@ struct Intersection
 // {
 //   vec4 centre;
 //   float radius;
-// 	vec3 color;
-// 	vec3 emissive;
-// 	float smoothness;
+//  vec3 color;
+//  vec3 emissive;
+//  float smoothness;
 // };
 
 class Sphere
@@ -97,7 +97,7 @@ class Sphere
     float smoothness;
 
   Sphere( vec4 centre, float radius, vec3 color, vec3 emissive, float smoothness )
-		: centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness){}
+    : centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness){}
 };
 
 
@@ -128,6 +128,7 @@ void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
 vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
 vec3 Reflect(const vec3 &incident, const vec3 &normal);
 void ResetScreenAccumulator(vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT]);
+vec4 NormaliseNoHomogenous(vec4 vector4);
 vec3 Vec4ToVec3(vec4& vec4);
 vec4 Vec3ToHomogenous(vec3& vec3);
 void PrintPairOfNumbers(float f1, float f2);
@@ -142,7 +143,7 @@ int main( int argc, char* argv[] )
   quit = false;
 
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
-  t = SDL_GetTicks();	/*Set start value for timer.*/
+  t = SDL_GetTicks(); /*Set start value for timer.*/
 
   //Instantiate vector of triangles
   vector<Triangle> triangles;
@@ -203,8 +204,8 @@ int main( int argc, char* argv[] )
   vector<Sphere> spheres;
   vector<Sphere> originalSpheres;
 
-	spheres.clear();
-	spheres.reserve( 5*2*3 );
+  spheres.clear();
+  spheres.reserve( 5*2*3 );
 
   originalSpheres.clear();
   originalSpheres.reserve( 5*2*3 );
@@ -318,13 +319,13 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         rowRandF = float(rowRand) / 2000.0f;
 
         //Top-left subpixel
-        directions[0] = normalize(vec4(
+        directions[0] = NormaliseNoHomogenous(vec4(
           col-SCREEN_WIDTH/2 - (colRandF),
           row-SCREEN_HEIGHT/2 - (rowRandF),
           focalLength,
           1.0f));
 
-        directions[0] = normalize(directions[0]);
+        directions[0] = NormaliseNoHomogenous(directions[0]);
 
         focalPoint = directions[0] * focalSphereRad;
         focalPoint.w = 1.0f;
@@ -332,7 +333,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
         randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
 
-        directions[0] = normalize(focalPoint - vec4(randX,randY,0.0,0.0f));
+        directions[0] = NormaliseNoHomogenous(focalPoint - vec4(randX,randY,0.0,0.0f));
 
         apertureSample[0].x = randX;
         apertureSample[0].y = randY;
@@ -347,13 +348,13 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         rowRandF = float(rowRand) / 2000.0f;
 
         //Top-right subpixel
-        directions[1] = normalize(vec4(
+        directions[1] = NormaliseNoHomogenous(vec4(
           col-SCREEN_WIDTH/2 - (colRandF),
           row-SCREEN_HEIGHT/2 + (rowRandF),
           focalLength,
           1.0f));
 
-        directions[1] = normalize(directions[1]);
+        directions[1] = NormaliseNoHomogenous(directions[1]);
 
         focalPoint = directions[1] * focalSphereRad;
         focalPoint.w = 1.0f;
@@ -361,7 +362,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
         randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
 
-        directions[1] = normalize(focalPoint - vec4(randX,randY,0.0,0.0f));
+        directions[1] = NormaliseNoHomogenous(focalPoint - vec4(randX,randY,0.0,0.0f));
 
         apertureSample[1].x = randX;
         apertureSample[1].y = randY;
@@ -374,13 +375,13 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         rowRandF = float(rowRand) / 2000.0f;
 
         //bottom-left subpixel
-        directions[2] = normalize(vec4(
+        directions[2] = NormaliseNoHomogenous(vec4(
           col-SCREEN_WIDTH/2 + (colRandF),
           row-SCREEN_HEIGHT/2 - (rowRandF),
           focalLength,
           1.0f));
 
-        directions[2] = normalize(directions[2]);
+        directions[2] = NormaliseNoHomogenous(directions[2]);
 
         focalPoint = directions[2] * focalSphereRad;
         focalPoint.w = 1.0f;
@@ -388,7 +389,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
         randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
 
-        directions[2] = normalize(focalPoint - vec4(randX,randY,0.0,0.0f));
+        directions[2] = NormaliseNoHomogenous(focalPoint - vec4(randX,randY,0.0,0.0f));
 
         apertureSample[2].x = randX;
         apertureSample[2].y = randY;
@@ -401,13 +402,13 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         rowRandF = float(rowRand) / 2000.0f;
 
         //bottom-right subpixel
-        directions[3] = normalize(vec4(
+        directions[3] = NormaliseNoHomogenous(vec4(
           col-SCREEN_WIDTH/2 + (colRandF),
           row-SCREEN_HEIGHT/2 + (rowRandF),
           focalLength,
           1.0f));
 
-        directions[3] = normalize(directions[3]);
+        directions[3] = NormaliseNoHomogenous(directions[3]);
 
         focalPoint = directions[3] * focalSphereRad;
         focalPoint.w = 1.0f;
@@ -415,7 +416,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         randX = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
         randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
 
-        directions[3] = normalize(focalPoint - vec4(randX,randY,0.0,0.0f));
+        directions[3] = NormaliseNoHomogenous(focalPoint - vec4(randX,randY,0.0,0.0f));
 
         apertureSample[3].x = randX;
         apertureSample[3].y = randY;
@@ -489,7 +490,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
         
         //Normalise direction of ray
-        direction = normalize(direction);
+        direction = NormaliseNoHomogenous(direction);
         // if (/col == (SCREEN_WIDTH/2) && row == (SCREEN_HEIGHT/2)) {
           // cout << direction << endl;
         // }
@@ -502,12 +503,12 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         float randY = APERTURE * (((float) rand() / (RAND_MAX)) - 0.5f);
 
         //New direction
-        //direction = normalize(focalPoint - vec4(randX,randY,0.0f,0.0f));
+        direction = NormaliseNoHomogenous(focalPoint - vec4(randX,randY,0.0f,0.0f));
 
 
         //Compute ClosestIntersection
         bool intersect = ClosestIntersection(
-          vec4(0,0,0.0f,1.0f),
+          vec4(randX,randY,0.0f,1.0f),
           direction,
           triangles,
           closestIntersection,
@@ -589,12 +590,14 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
     if( e.key.keysym.scancode == SDL_SCANCODE_UP )
     {
       cameraPos.z += movementSpeed;
+      cout << cameraPos << "\n";
 
     }
     if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
     {
       //Move camera backward
       cameraPos.z -= movementSpeed;
+      cout << cameraPos << "\n";
 
     }
 
@@ -680,7 +683,7 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
     }
 
     //Move focalsphereradius
-    if (e.key.keysym.scancode == SDL_SCANCODE_O)\
+    if (e.key.keysym.scancode == SDL_SCANCODE_O)
     {
       focalSphereRad += 0.2f;
     }
@@ -827,7 +830,7 @@ bool ClosestIntersection(
       std::swap(t0, t1);
     }
 
-    if (t0 < 0.0f) 
+    if (t0 < 0.0f)
     { 
       t0 = t1; // if t0 is negative, let's use t1 instead 
       if (t0 < 0.0f) 
@@ -866,19 +869,19 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
   vec4 nNorm;
   if(intersection.triangleIndex !=-1)
   {
-    nNorm = normalize(triangles[intersection.triangleIndex].normal);
+    nNorm = NormaliseNoHomogenous(triangles[intersection.triangleIndex].normal);
     // return vec3(0,0,0);
   }
   else if(intersection.sphereIndex!= -1)
   {
     // cout <<"sphere\n";
-    nNorm = glm::normalize(intersection.position - spheres[intersection.sphereIndex].centre);
+    nNorm = NormaliseNoHomogenous(intersection.position - spheres[intersection.sphereIndex].centre);
   }
 
   
   // r is vector from intersection point to light source
   vec4 r  = lightPos - intersection.position;
-  vec4 rNorm = normalize(r);
+  vec4 rNorm = NormaliseNoHomogenous(r);
 
   //Compute power per area B
   float A = 4.0f * M_PI * ( pow(glm::length(r),2.0f) );
@@ -891,7 +894,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
   //Vector direction from surface to light
   vec4 lightDir = lightPos - intersection.position;
 
-  vec4 lightDirNorm = normalize(lightPos - intersection.position);
+  vec4 lightDirNorm = NormaliseNoHomogenous(lightPos - intersection.position);
 
   //Distance from surface to light
   float lightDist = glm::length(lightDir);
@@ -1179,7 +1182,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     {
       //Find reflected ray from indidence ray and normal
       vec3 incidentRay = Vec4ToVec3(current.position) - previous;
-      vec4 normalVec4 = glm::normalize(current.position - spheres[current.sphereIndex].centre);
+      vec4 normalVec4 = NormaliseNoHomogenous(current.position - spheres[current.sphereIndex].centre);
       vec3 normalVec3 = Vec4ToVec3(normalVec4);
       vec3 reflectedRay = Reflect(incidentRay, normalVec3);
       vec4 reflectedRayV4 = Vec3ToHomogenous(reflectedRay);
@@ -1233,7 +1236,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         vec3 localDirectionOffset = vec3(randXOffset,0,randZOffset);
 
         //Create local coordinate system of current triangle
-        vec4 normalVec4 = glm::normalize(current.position - spheres[current.sphereIndex].centre);
+        vec4 normalVec4 = NormaliseNoHomogenous(current.position - spheres[current.sphereIndex].centre);
         vec3 normal = Vec4ToVec3(normalVec4);
         vec3 Nt;
         vec3 Nb;
@@ -1294,7 +1297,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       vec3 indirectLight;
 
       //Find local coordinate system at the intersection
-      vec4 normalVec4 = glm::normalize(current.position - spheres[current.sphereIndex].centre);
+      vec4 normalVec4 = NormaliseNoHomogenous(current.position - spheres[current.sphereIndex].centre);
       vec3 normal = Vec4ToVec3(normalVec4);
       vec3 Nt;
       vec3 Nb;
@@ -1364,7 +1367,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       {
         //Find reflected ray
         vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
-        vec4 normalVec4 = glm::normalize(current.position - spheres[current.sphereIndex].centre);
+        vec4 normalVec4 = NormaliseNoHomogenous(current.position - spheres[current.sphereIndex].centre);
         vec3 normalVec3 = Vec4ToVec3(normalVec4);
         vec3 reflectedRay = normalize(Reflect(incidentRay, normalVec3));
 
@@ -1428,7 +1431,7 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
 
 
     vec4 lightDir = samplePoint - intersection.position;
-    vec4 lightDirNormalised = normalize(samplePoint - intersection.position);
+    vec4 lightDirNormalised = NormaliseNoHomogenous(samplePoint - intersection.position);
 
     float lightDist = glm::length(lightDir);
 
@@ -1456,16 +1459,16 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
   if(intersection.triangleIndex != -1)
   {
     // Get normal to triangle
-    nNorm = normalize(triangles[intersection.triangleIndex].normal);
+    nNorm = NormaliseNoHomogenous(triangles[intersection.triangleIndex].normal);
   }
   else if(intersection.sphereIndex != -1)
   {
-    nNorm = glm::normalize(intersection.position - spheres[intersection.sphereIndex].centre);
+    nNorm = NormaliseNoHomogenous(intersection.position - spheres[intersection.sphereIndex].centre);
   }
 
   // r is vector from intersection point to light source
   vec4 r  = lightPos - intersection.position;
-  vec4 rNorm = normalize(r);
+  vec4 rNorm = NormaliseNoHomogenous(r);
 
   //Compute power per area B
   float A = 4.0f * M_PI * ( pow(glm::length(r),2.0f) );
@@ -1533,6 +1536,13 @@ void ResetScreenAccumulator(vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT])
 
 
 //Helpful functions
+vec4 NormaliseNoHomogenous(vec4 vector4)
+{
+  vec3 tempVec3 = vec3(vector4.x,vector4.y,vector4.z);
+  tempVec3 = normalize(tempVec3);
+  return vec4(tempVec3.x,tempVec3.y,tempVec3.z,1.0f);
+}
+
 vec3 Vec4ToVec3(vec4& vec4)
 {
   return vec3(vec4.x,vec4.y,vec4.z);
@@ -1547,3 +1557,4 @@ void PrintPairOfNumbers(float f1, float f2)
 {
   cout << "(" << f1 << "," << f2 << ")\n";
 }
+
