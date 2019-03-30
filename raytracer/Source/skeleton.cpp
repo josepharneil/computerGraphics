@@ -26,7 +26,7 @@ using glm::mat4;
 #define SPHERE_LIGHT_RADIUS 0.05f
 #define SPHERE_LIGHT_SAMPLES 10
 // #define FOCAL_SPHERE_RADIUS 250.0f
-#define APERTURE 0.1f//e.g. 0.1f
+#define APERTURE 0.0f//e.g. 0.1f
 // #define isAAOn false
 #define FOG_STRENGTH 0.1f
 
@@ -614,7 +614,7 @@ float FogAmount(const vec3 start,const vec3 end)
 
 float FogUnitCurveArea(float end,float start,float amplitude,float frequency)
 {
-  return ((end - (cos(frequency * end)/frequency)) * amplitude) - ((start - (cos(frequency * start)/ frequency)) * amplitude);
+  return (((end - (cos(frequency * end)/frequency)) * amplitude) - ((start - (cos(frequency * start)/ frequency)) * amplitude));
 }
 
 //============= Update =============//
