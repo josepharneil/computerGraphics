@@ -22,15 +22,15 @@ using glm::mat4;
 #define PI 3.14159265
 #define RAYDEPTH 5
 #define DIFFUSE_SAMPLES 1000000000
-#define LIGHT_POWER 6.0f
-#define SPHERE_LIGHT_RADIUS 0.25f
+#define LIGHT_POWER 3.5f
+#define SPHERE_LIGHT_RADIUS 0.05f
 #define SPHERE_LIGHT_SAMPLES 10
 // #define FOCAL_SPHERE_RADIUS 250.0f
 #define APERTURE 0.0f//e.g. 0.2f
 // #define isAAOn false
 
 //============= Global Variables =============//
-int t;
+int timeT;
 bool quit;
 
 
@@ -143,7 +143,7 @@ int main( int argc, char* argv[] )
   quit = false;
 
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
-  t = SDL_GetTicks(); /*Set start value for timer.*/
+  timeT = SDL_GetTicks(); /*Set start value for timer.*/
 
   //Instantiate vector of triangles
   vector<Triangle> triangles;
@@ -210,10 +210,14 @@ int main( int argc, char* argv[] )
   originalSpheres.clear();
   originalSpheres.reserve( 5*2*3 );
 
-  vec4 centreTEMP(0.0f,0.0f, -0.5f,1.0f);
-  Sphere mySphere = Sphere(centreTEMP,0.1f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f);
+  vec4 centreTEMP(0.3f,-0.2f, -0.3f,1.0f);
+  Sphere mySphere = Sphere(centreTEMP,0.3f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f);
+  vec4 centreTEMP2(-0.3f,0.0f, -0.5f,1.0f);
+  Sphere mySphere2 = Sphere(centreTEMP2,0.1f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f);
   spheres.push_back( mySphere );
+  spheres.push_back( mySphere2 );
   originalSpheres.push_back( mySphere );
+  originalSpheres.push_back( mySphere2 );
 
 
   //Update and draw
@@ -590,14 +594,14 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
     if( e.key.keysym.scancode == SDL_SCANCODE_UP )
     {
       cameraPos.z += movementSpeed;
-      cout << cameraPos << "\n";
+      // cout << cameraPos << "\n";
 
     }
     if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
     {
       //Move camera backward
       cameraPos.z -= movementSpeed;
-      cout << cameraPos << "\n";
+      // cout << cameraPos << "\n";
 
     }
 
@@ -840,7 +844,7 @@ bool ClosestIntersection(
     }
 
     //If get to this point then an intersection has occured.
-    t = t0;
+    float t = t0;
     if (t < minDist)
     {
         //cout<<"sphere found" << "\n";
@@ -848,6 +852,8 @@ bool ClosestIntersection(
         closestIntersection.distance = t;
         closestIntersection.sphereIndex = i;
         closestIntersection.triangleIndex = -1;
+
+        // cout << closestIntersection.distance << "\n";
         minDist = t;
     }
     result = true;
