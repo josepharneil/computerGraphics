@@ -95,9 +95,10 @@ class Sphere
     vec3 color;
     vec3 emissive;
     float smoothness;
+    float indexOfRefraction;
 
-  Sphere( vec4 centre, float radius, vec3 color, vec3 emissive, float smoothness )
-    : centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness){}
+  Sphere( vec4 centre, float radius, vec3 color, vec3 emissive, float smoothness, float indexOfRefraction )
+    : centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness), indexOfRefraction(indexOfRefraction){}
 };
 
 
@@ -211,9 +212,9 @@ int main( int argc, char* argv[] )
   originalSpheres.reserve( 5*2*3 );
 
   vec4 centreTEMP(0.3f,-0.2f, -0.3f,1.0f);
-  Sphere mySphere = Sphere(centreTEMP,0.3f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f);
-  vec4 centreTEMP2(-0.3f,0.0f, -0.5f,1.0f);
-  Sphere mySphere2 = Sphere(centreTEMP2,0.1f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f);
+  Sphere mySphere = Sphere(centreTEMP,0.3f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,0.0f);
+  vec4 centreTEMP2(-0.4f,0.3f, -0.5f,1.0f);
+  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(0.75f,0.25f,0.75f), vec3(0.0f,0.0f,0.0f),0.0f,1.0f);
   spheres.push_back( mySphere );
   spheres.push_back( mySphere2 );
   originalSpheres.push_back( mySphere );
@@ -934,6 +935,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 vec3 PathTracer(Intersection current, vec4& lightPos, 
                         vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool& isAreaLight, const vector<Sphere>& spheres )
 {
+  // float BRDF = 1.0f;
   //============= Russian Roulette =============//
   int chamberNumber = 10;
   int russianRoulette = rand() % (chamberNumber + 1);//number from 0->chamberNumber
@@ -1047,12 +1049,10 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         //If there is an intersection
         if(isIntersection)
         {
-          vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
-          float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
-          BRDF = 1.0f;
+          // vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
           // cout << BRDF << "\n";
           //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * triangles[current.triangleIndex].color * BRDF);
+          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * triangles[current.triangleIndex].color);
         }
         else//If there is no intersection, don't recurse anymore 
         {
@@ -1144,7 +1144,34 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     //In all cases, we sample the light (at maximum importance)
     if(isAreaLight)//arealight
     {
-      result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color));
+      //if we're casting a specular ray
+      if(castSpecularRay)
+      {
+        //Find reflected ray
+        // vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
+        // vec4 normalVec4 = triangles[current.triangleIndex].normal;//NormaliseNoHomogenous(current.position - triangles[current.triangleIndex].centre);
+        // vec3 normalVec3 = Vec4ToVec3(normalVec4);
+        // vec3 reflectedRay = normalize(Reflect(incidentRay, normalVec3));
+
+        //Find view direction
+        // vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+
+        //Compute direct light
+        float BRDF =1.0f;// pow(abs(glm::dot(viewDirection,reflectedRay)),3); //was 50
+
+        result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color) * BRDF);
+      }
+      else //if we are casting a diffuse ray
+      {
+        
+        result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color));
+
+      }
+
+
+
+
+      // result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color));
     }
     else//pointlight
     {
@@ -1181,7 +1208,6 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   #pragma region SPHERES
   if(current.sphereIndex != -1)
   {
-    // cout << "entered\n";
     //============= Smoothness/Mirror =============//
     //If there is any smoothness (for reflectance)
     if(spheres[current.sphereIndex].smoothness == 1.0f)
@@ -1273,12 +1299,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         //If there is an intersection
         if(isIntersection)
         {
-          vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
-          float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
-          BRDF = 1.0f;
-          // cout << BRDF << "\n";
+          // vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+          // float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+          // BRDF = 1.0f;
+
           //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * spheres[current.sphereIndex].color * BRDF);
+          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * spheres[current.sphereIndex].color);
         }
         else//If there is no intersection, don't recurse anymore 
         {
@@ -1297,7 +1323,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     //============= Diffuse =============//
     //If the surface is diffuse (no smoothness)
-    if(spheres[current.sphereIndex].smoothness == 0.0f || castDiffuseRay)
+    if(spheres[current.sphereIndex].smoothness == 0.0f)// || castDiffuseRay)
     {
       //indirectlight comes from sampling
       vec3 indirectLight;
@@ -1359,12 +1385,35 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     //============= End Emission =============//
 
     //Direct lighting
-    // if(isSampleDirectLight)
     //============= Direct Lighting =============//
     //In all cases, we sample the light (at maximum importance)
     if(isAreaLight)//arealight
     {
-      result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * spheres[current.sphereIndex].color));
+      //if we're casting a specular ray
+      if(castSpecularRay)
+      {
+        //Find reflected ray
+        vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
+        vec4 normalVec4 = NormaliseNoHomogenous(current.position - spheres[current.sphereIndex].centre);
+        vec3 normalVec3 = Vec4ToVec3(normalVec4);
+        vec3 reflectedRay = normalize(Reflect(incidentRay, normalVec3));
+
+        //Find view direction
+        vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+
+        //Compute direct light
+        float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+
+        result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * spheres[current.sphereIndex].color) * BRDF);
+      }
+      else //if we are casting a diffuse ray
+      {
+        
+        result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * spheres[current.sphereIndex].color));
+
+      }
+
+      
     }
     else//pointlight
     {
@@ -1381,9 +1430,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
 
         //Compute direct light
-        // cout << (glm::dot(viewDirection,reflectedRay)) << "\n";
         float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
-        BRDF = 1.0f;
 
         result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres ) * spheres[current.sphereIndex].color)) * BRDF   );
       }
