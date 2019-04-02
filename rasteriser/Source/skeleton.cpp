@@ -17,10 +17,11 @@ using glm::vec2;
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Defines
  * * * * * * * * * * * * * * * * * * * * * * */
-#define SCREEN_WIDTH 620
-#define SCREEN_HEIGHT 512//256
-#define FULLSCREEN_MODE true
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 800//256
+#define FULLSCREEN_MODE false
 #define PI 3.14159265
+#define LIGHT_POWER 3.5f
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Global Variables
@@ -56,9 +57,8 @@ struct Vertex
   // vec3 reflectance;
 };
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *              FUNCTION DEFS
- * * * * * * * * * * * * * * * * * * * * * * */
+//============= Function Definitions =============//
+#pragma region FunctionDefinitions
 void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& focalLength, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea);
 void TestComputePolygonRows(screen* screen);
@@ -70,13 +70,14 @@ void DrawPolygonRows( screen* screen, const vector<Pixel>& leftPixels, const vec
 void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw);
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels, screen* screen );
 void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance );
-void VertexShader( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength );
+void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength );
 void PixelShader(const Pixel& p, screen* s, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea );
+vec4 NormaliseNoHomogenous(vec4 vector4);
+void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
+#pragma endregion FunctionDefinitions
+//============= END Function Definitions =============//
 
-//
-/* * * * * * * * * * * * * * * * * * * * * * *
- *                  Main
- * * * * * * * * * * * * * * * * * * * * * * */
+//============= Main =============//
 int main( int argc, char* argv[] )
 {
   //Initially, do not quit
@@ -98,11 +99,12 @@ int main( int argc, char* argv[] )
   vec4 cameraPos( 0, 0, -3.001,1 );
   mat4 cameraMatrix;
   int yaw = 0;
+  CalculateCameraMatrix(cameraPos, yaw, cameraMatrix);
 
   //Light
   vec4 lightPos(0,-0.5,-0.7,1);
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
-  vec3 lightPower = 30.0f*vec3( 1, 1, 1 );
+  vec3 lightPower = LIGHT_POWER*vec3( 1, 1, 1 );
   vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
 
   //Focal length
@@ -133,10 +135,9 @@ int main( int argc, char* argv[] )
   KillSDL(screen);
   return 0;
 }
+//============= End Main =============//
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *                  Draw
- * * * * * * * * * * * * * * * * * * * * * * */
+//============= Draw =============//
 /*Place your drawing here*/
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& focalLength, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea)
 {
@@ -173,13 +174,16 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 
   }
 }
+//============= END Draw =============//
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *                  Update
- * * * * * * * * * * * * * * * * * * * * * * */
+/*
+For all triangles
+  DrawPolygon -> compute and draw polygon rows
+*/
+
+//============= Update =============//
 void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
 {
-
   float movementSpeed = 0.1f;
 
   SDL_Event e;
@@ -273,36 +277,15 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
         quit = true;
       }
     }
+  
+    CalculateCameraMatrix(cameraPos, yaw, cameraMatrix);
   }
-
-  cameraMatrix[0][0] = cos( yaw * PI / 180 );
-  cameraMatrix[0][1] = 0;
-  cameraMatrix[0][2] = sin( yaw * PI / 180 );
-  cameraMatrix[0][3] = 0;
-
-  cameraMatrix[1][0] = 0;
-  cameraMatrix[1][1] = 1;
-  cameraMatrix[1][2] = 0;
-  cameraMatrix[1][3] = 0;
-
-  cameraMatrix[2][0] = -sin( yaw * PI / 180 );
-  cameraMatrix[2][1] = 0;
-  cameraMatrix[2][2] = cos( yaw * PI / 180 );
-  cameraMatrix[2][3] = 0;
-
-  cameraMatrix[3][0] = cameraPos.x;
-  cameraMatrix[3][1] = cameraPos.y;
-  cameraMatrix[3][2] = cameraPos.z;
-  cameraMatrix[3][3] = 1;
-
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * *
- *          Other Functions
- * * * * * * * * * * * * * * * * * * * * * * */
+
 
 //Projects scene point (triangle vertex) onto image plane
-void VertexShader( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength)
+void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength)
 {
   //Translates vertex so that camera is at origin, relative to the vertex
   vec4 vertexTransformed = vertex.position; //- cameraPos;
@@ -377,8 +360,11 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
   for( int i=0; i<V; ++i )
   {
     //Compute projection
-    VertexShader( vertices[i], vertexPixels[i], cameraPos, focalLength);
+    PerspectiveProject( vertices[i], vertexPixels[i], cameraPos, focalLength);
   }
+
+  //CLIPPING BE DONE BY HERE
+  
 
   //Initialise vectors to store left-most and right-most positions of each row of the projected triangle
   vector<Pixel> leftPixels;
@@ -562,8 +548,8 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     vec4 r = lightPos - p.pos3d;
     vec4 n = currentNormal;
 
-    vec4 rNorm = normalize(r);
-    vec4 nNorm = normalize(n);
+    vec4 rNorm = NormaliseNoHomogenous(r);
+    vec4 nNorm = NormaliseNoHomogenous(n);
     
     float A = 4 * M_PI * ( pow(glm::length(r),2) );
     vec3 B = vec3(lightPower.x/A,lightPower.y/A,lightPower.z/A);
@@ -578,4 +564,33 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
   }
 }
 
+//Helpful Functions
+vec4 NormaliseNoHomogenous(vec4 vector4)
+{
+  vec3 tempVec3 = vec3(vector4.x,vector4.y,vector4.z);
+  tempVec3 = normalize(tempVec3);
+  return vec4(tempVec3.x,tempVec3.y,tempVec3.z,1.0f);
+}
 
+void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix)
+{
+  camMatrix[0][0] = cos( yaw * PI / 180 );
+  camMatrix[0][1] = 0;
+  camMatrix[0][2] = sin( yaw * PI / 180 );
+  camMatrix[0][3] = 0;
+
+  camMatrix[1][0] = 0;
+  camMatrix[1][1] = 1;
+  camMatrix[1][2] = 0;
+  camMatrix[1][3] = 0;
+
+  camMatrix[2][0] = -sin( yaw * PI / 180 );
+  camMatrix[2][1] = 0;
+  camMatrix[2][2] = cos( yaw * PI / 180 );
+  camMatrix[2][3] = 0;
+
+  camMatrix[3][0] = camPos.x;
+  camMatrix[3][1] = camPos.y;
+  camMatrix[3][2] = camPos.z;
+  camMatrix[3][3] = 1;
+}
