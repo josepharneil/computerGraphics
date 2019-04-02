@@ -282,6 +282,36 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
   }
 }
 
+/////////
+//This draws the polygon from some vertices
+void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance )
+{
+  //Find number of vertices of polygon (3 for triangle)
+  int V = vertices.size();
+
+  //Initialise 3 long vector of projected vertices (pixel locations)
+  vector<Pixel> vertexPixels( V );
+
+  //For each vertex
+  for( int i=0; i<V; ++i )
+  {
+    //Compute projection
+    PerspectiveProject( vertices[i], vertexPixels[i], cameraPos, focalLength);
+  }
+
+  //CLIPPING BE DONE BY HERE
+  
+
+  //Initialise vectors to store left-most and right-most positions of each row of the projected triangle
+  vector<Pixel> leftPixels;
+  vector<Pixel> rightPixels;
+
+  //Calculates leftPixels and rightPixels
+  ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
+
+  //Draws the rows
+  DrawPolygonRows( screen, leftPixels, rightPixels, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
+}
 
 
 //Projects scene point (triangle vertex) onto image plane
@@ -312,69 +342,6 @@ void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float&
   p.y = y;
   p.zinv = zinv;
   p.pos3d = vertex.position;
-}
-
-//Could be sped up with Bresenham's line algorithm
-void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
-{
-  int N = result.size();
-
-  //Calc steps
-  float xStep = (b.x-a.x) / float(max(N-1,1));
-  float yStep = (b.y-a.y) / float(max(N-1,1));
-  float zStep = (b.zinv-a.zinv) / float(max(N-1,1));
-  //The quantity we interpolate is pos3dStep over Z - this accounts for projection
-  vec4 pos3dStep = ( (b.pos3d*b.zinv) - (a.pos3d*a.zinv) ) / float(max(N-1,1));
-
-  //Initialise
-  float xCurrent = float(a.x);
-  float yCurrent = float(a.y);
-  float zCurrent = a.zinv;
-  vec4 pos3dCurrent( a.pos3d * a.zinv );
-
-  //Interpolate
-  for( int i=0; i<N; ++i )
-  {
-    result[i].x = round(xCurrent);
-    result[i].y = round(yCurrent);
-    result[i].zinv = zCurrent;
-    result[i].pos3d = pos3dCurrent / zCurrent;
-    
-    xCurrent += xStep;
-    yCurrent += yStep;
-    zCurrent += zStep;
-    pos3dCurrent += pos3dStep;
-  }
-}
-
-//This draws the polygon from some vertices
-void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance )
-{
-  //Find number of vertices of polygon (3 for triangle)
-  int V = vertices.size();
-
-  //Initialise 3 long vector of projected vertices (pixel locations)
-  vector<Pixel> vertexPixels( V );
-
-  //For each vertex
-  for( int i=0; i<V; ++i )
-  {
-    //Compute projection
-    PerspectiveProject( vertices[i], vertexPixels[i], cameraPos, focalLength);
-  }
-
-  //CLIPPING BE DONE BY HERE
-  
-
-  //Initialise vectors to store left-most and right-most positions of each row of the projected triangle
-  vector<Pixel> leftPixels;
-  vector<Pixel> rightPixels;
-
-  //Calculates leftPixels and rightPixels
-  ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
-
-  //Draws the rows
-  DrawPolygonRows( screen, leftPixels, rightPixels, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
 }
 
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels, screen* screen )
@@ -455,8 +422,35 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
       }
     }
   }
-
 }
+
+void DrawPolygonRows( screen* screen, 
+                      const vector<Pixel>& leftPixels, 
+                      const vector<Pixel>& rightPixels, 
+                      float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],
+                      vec4& currentNormal, vec3& currentReflectance, 
+                      vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea)
+{
+  vector<Pixel> pixelsBetween(SCREEN_HEIGHT);
+
+  //For each entry in left/right pixels
+  for (int i = 0; i < leftPixels.size(); i++)
+  {
+    int numberOfPixelsBetween = rightPixels[i].x - leftPixels[i].x + 1;
+
+    pixelsBetween.resize(numberOfPixelsBetween);
+    InterpolatePixel(leftPixels[i], rightPixels[i], pixelsBetween);
+
+    for(int p = 0; p < pixelsBetween.size(); p++)
+    {
+      if(pixelsBetween[p].y < SCREEN_HEIGHT && pixelsBetween[p].y >= 0 && pixelsBetween[p].x < SCREEN_WIDTH && pixelsBetween[p].x >=0)
+      {
+        PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
+      } 
+    }
+  }
+}
+
 
 void TestComputePolygonRows(screen* screen)
 {
@@ -494,6 +488,42 @@ void TestComputePolygonRows(screen* screen)
   }
 }
 
+
+//Could be sped up with Bresenham's line algorithm
+void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
+{
+  int N = result.size();
+
+  //Calc steps
+  float xStep = (b.x-a.x) / float(max(N-1,1));
+  float yStep = (b.y-a.y) / float(max(N-1,1));
+  float zStep = (b.zinv-a.zinv) / float(max(N-1,1));
+  //The quantity we interpolate is pos3dStep over Z - this accounts for projection
+  vec4 pos3dStep = ( (b.pos3d*b.zinv) - (a.pos3d*a.zinv) ) / float(max(N-1,1));
+
+  //Initialise
+  float xCurrent = float(a.x);
+  float yCurrent = float(a.y);
+  float zCurrent = a.zinv;
+  vec4 pos3dCurrent( a.pos3d * a.zinv );
+
+  //Interpolate
+  for( int i=0; i<N; ++i )
+  {
+    result[i].x = round(xCurrent);
+    result[i].y = round(yCurrent);
+    result[i].zinv = zCurrent;
+    result[i].pos3d = pos3dCurrent / zCurrent;
+    
+    xCurrent += xStep;
+    yCurrent += yStep;
+    zCurrent += zStep;
+    pos3dCurrent += pos3dStep;
+  }
+}
+
+
+
 //Finds a line on screen between a and b of some colour
 void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
 {
@@ -511,33 +541,6 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
   
   //Interpolate between two vertices
   InterpolatePixel( a, b, lineToDraw );
-}
-
-void DrawPolygonRows( screen* screen, 
-                      const vector<Pixel>& leftPixels, 
-                      const vector<Pixel>& rightPixels, 
-                      float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],
-                      vec4& currentNormal, vec3& currentReflectance, 
-                      vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea)
-{
-  vector<Pixel> pixelsBetween(SCREEN_HEIGHT);
-
-  //For each entry in left/right pixels
-  for (int i = 0; i < leftPixels.size(); i++)
-  {
-    int numberOfPixelsBetween = rightPixels[i].x - leftPixels[i].x + 1;
-
-    pixelsBetween.resize(numberOfPixelsBetween);
-    InterpolatePixel(leftPixels[i], rightPixels[i], pixelsBetween);
-
-    for(int p = 0; p < pixelsBetween.size(); p++)
-    {
-      if(pixelsBetween[p].y < SCREEN_HEIGHT && pixelsBetween[p].y >= 0 && pixelsBetween[p].x < SCREEN_WIDTH && pixelsBetween[p].x >=0)
-      {
-        PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
-      } 
-    }
-  }
 }
 
 void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
