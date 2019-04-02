@@ -22,6 +22,9 @@ using glm::vec2;
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define LIGHT_POWER 3.5f
+#define NEAR_CLIP 0.001
+#define FAR_CLIP 1000
+#define FIELD_OF_VIEW 90 
 
 /* * * * * * * * * * * * * * * * * * * * * * *
  *              Global Variables
@@ -545,7 +548,7 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
 
 void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
                 vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea )
-{
+{  
   if(p.zinv > depthBuffer[p.y][p.x])
   {
     vec4 r = lightPos - p.pos3d;
