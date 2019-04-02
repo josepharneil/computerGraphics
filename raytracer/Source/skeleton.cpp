@@ -222,7 +222,7 @@ int main( int argc, char* argv[] )
   vec4 centreTEMP(0.3f,-0.2f, -0.3f,1.0f);
   Sphere mySphere = Sphere(centreTEMP,0.3f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,1.0f);
   vec4 centreTEMP2(0.2f,0.3f, -0.9f,1.0f);
-  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(0.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,1.0f);
+  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,1.333f);
   spheres.push_back( mySphere );
   spheres.push_back( mySphere2 );
   originalSpheres.push_back( mySphere );
