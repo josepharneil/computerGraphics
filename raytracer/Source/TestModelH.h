@@ -159,24 +159,24 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// triangles.push_back( Triangle(G,F,E,red) );
 	// triangles.push_back( Triangle(G,H,F,red) );
 	// Front
-	triangles.push_back( Triangle(E,B,A,white,black,0.0f,1.0f) );
-	triangles.push_back( Triangle(E,F,B,white,black,0.0f,1.0f) );
+	triangles.push_back( Triangle(E,B,A,cyan,black,0.0f,1.0f) );
+	triangles.push_back( Triangle(E,F,B,cyan,black,0.0f,1.0f) );
 
 	// Front
-	triangles.push_back( Triangle(F,D,B,white,black,0.0f,1.0f) );
-	triangles.push_back( Triangle(F,H,D,white,black,0.0f,1.0f) );
+	triangles.push_back( Triangle(F,H,D,cyan,black,0.0f,1.0f) );
+	triangles.push_back( Triangle(F,D,B,cyan,black,0.0f,1.0f) );
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,white,black,0.0f,1.0f) );
-	triangles.push_back( Triangle(H,G,C,white,black,0.0f,1.0f) );
+	triangles.push_back( Triangle(H,C,D,cyan,black,0.0f,1.0) );
+	triangles.push_back( Triangle(H,G,C,cyan,black,0.0f,1.0) );
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,white,black,0.0f,1.0f) );
-	triangles.push_back( Triangle(E,A,C,white,black,0.0f,1.0f) );
+	triangles.push_back( Triangle(G,E,C,cyan,black,0.0f,1.0) );
+	triangles.push_back( Triangle(E,A,C,cyan,black,0.0f,1.0) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,white,black,0.0f,1.0f) );
-	triangles.push_back( Triangle(G,H,F,white,black,0.0f,1.0f) );
+	triangles.push_back( Triangle(G,F,E,cyan,black,0.0f,1.0) );
+	triangles.push_back( Triangle(G,H,F,cyan,black,0.0f,1.0) );
 	// ---------------------------------------------------------------------------
 	// Tall block
 
@@ -210,24 +210,24 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// triangles.push_back( Triangle(G,F,E,blue) );
 	// triangles.push_back( Triangle(G,H,F,blue) );
 	// Front
-	triangles.push_back( Triangle(E,B,A,white,black,0.9f,1.0f) );
-	triangles.push_back( Triangle(E,F,B,white,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(E,B,A,pureWhite,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(E,F,B,pureWhite,black,0.9f,1.0f) );
 
 	// Front
-	triangles.push_back( Triangle(F,D,B,white,black,0.9f,1.0f) );
-	triangles.push_back( Triangle(F,H,D,white,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(F,D,B,pureWhite,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(F,H,D,pureWhite,black,0.9f,1.0f) );
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,white,black,0.9f,1.0f) );
-	triangles.push_back( Triangle(H,G,C,white,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(H,C,D,pureWhite,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(H,G,C,pureWhite,black,0.9f,1.0f) );
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,white,black,0.9f,1.0f) );
-	triangles.push_back( Triangle(E,A,C,white,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(G,E,C,pureWhite,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(E,A,C,pureWhite,black,0.9f,1.0f) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,white,black,0.9f,1.0f) );
-	triangles.push_back( Triangle(G,H,F,white,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(G,F,E,pureWhite,black,0.9f,1.0f) );
+	triangles.push_back( Triangle(G,H,F,pureWhite,black,0.9f,1.0f) );
 
 
 	// ----------------------------------------------

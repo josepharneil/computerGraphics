@@ -20,9 +20,9 @@ using glm::mat4;
 #define SCREEN_HEIGHT 400
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
-#define RAYDEPTH 5
+#define RAYDEPTH 10
 #define DIFFUSE_SAMPLES 1000000000
-#define LIGHT_POWER 3.5f
+#define LIGHT_POWER 4.5f
 #define SPHERE_LIGHT_RADIUS 0.05f
 #define SPHERE_LIGHT_SAMPLES 10
 // #define FOCAL_SPHERE_RADIUS 250.0f
@@ -197,7 +197,7 @@ int main( int argc, char* argv[] )
 
   bool isAreaLight = false;
   
-  bool isFog = true;
+  bool isFog = false;
 
   
 
@@ -219,10 +219,10 @@ int main( int argc, char* argv[] )
   originalSpheres.clear();
   originalSpheres.reserve( 5*2*3 );
 
-  vec4 centreTEMP(0.3f,-0.2f, -0.3f,1.0f);
-  Sphere mySphere = Sphere(centreTEMP,0.3f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,1.0f);
-  vec4 centreTEMP2(0.2f,0.3f, -0.9f,1.0f);
-  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,1.333f);
+  vec4 centreTEMP(-0.4f,-0.1f,-0.5f,1.0f);
+  vec4 centreTEMP2(0.3f,-0.2f,-0.3f,1.0f);
+  Sphere mySphere = Sphere(centreTEMP,0.2f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,1.0f);
+  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,2.42f);
   spheres.push_back( mySphere );
   spheres.push_back( mySphere2 );
   originalSpheres.push_back( mySphere );
@@ -981,7 +981,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
     if ( glm::length(lightIntersection.position - intersection.position) < lightDist )
     {
       //Set to black (i.e., a shadow)
-      D = vec3(0.0f,0.0f,0.0f);
+      // D = vec3(1.0f,0.0f,1.0f);
     }
   }
 
@@ -994,9 +994,9 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 {
   // float BRDF = 1.0f;
   //============= Russian Roulette =============//
-  int chamberNumber = 10;
+  int chamberNumber = 20;
   int russianRoulette = rand() % (chamberNumber + 1);//number from 0->chamberNumber
-  if(russianRoulette <= 6 && depth > 1)//60% chance, except at depth 0
+  if(russianRoulette <= 6 && depth > 2)//60% chance, except at depth 0
   {
     return vec3(0,0,0);
   }
@@ -1051,10 +1051,23 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     }
     //============= End Smoothness =============//
 
+    bool castSpecularRay = false;
     //============= Refraction =============//
     if(triangles[current.triangleIndex].refractiveIndex != 1.0f)
     {
-      // cout << "hello refract\n";
+      //Random number from 0->1
+      float randNum = ((float) rand() / (RAND_MAX));
+
+      if(randNum >= 0.8)
+      // if(false)
+      {
+        castSpecularRay = true;
+        // cout << randNum << '\n';
+      }
+      else
+      {
+      
+      
 
       //Find refracted ray from indidence ray and normal
       vec3 incidentRay = Vec4ToVec3(current.position) - previous;
@@ -1080,11 +1093,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       {
         
       }
+      }
     }
 
     //============= Specularity =============//
     bool castDiffuseRay = false;
-    bool castSpecularRay = false;
+    
 
     if(triangles[current.triangleIndex].smoothness < 1.0f && triangles[current.triangleIndex].smoothness > 0.0f && triangles[current.triangleIndex].refractiveIndex == 1.0f)
     {
@@ -1195,11 +1209,11 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       //If there is an interesction, recurse at +1 depth
       if(isIntersect)
       {
-        // float cosTheta = 2.0f * PI * rand2;
-        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
+        // float cosThrefractiveIndexRatio = 2.0f * PI * rand2;
+        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosThrefractiveIndexRatio));
 
-        float cosTheta = rand1;
-        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosTheta*0.5f); //0.5f is the attenuation factor
+        float cosThrefractiveIndexRatio = rand1;
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosThrefractiveIndexRatio*0.5f); //0.5f is the attenuation factor
       }
       else//If there is no intersection, do nothing
       {
@@ -1233,7 +1247,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     // }
     //In all cases, we sample the light (at maximum importance)
 
-    if(triangles[current.triangleIndex].refractiveIndex == 1.0f)
+    if(triangles[current.triangleIndex].refractiveIndex == 1.0f || castSpecularRay)
     {
       if(isAreaLight)//arealight
       {
@@ -1335,42 +1349,65 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
     }
     //============= End Smoothness =============//
 
+    bool castSpecularRay = false;
     //============= Refraction =============//
     if(spheres[current.sphereIndex].refractiveIndex != 1.0f)
     {
-      // cout << "hello refract\n";
+      //Random number from 0->1
+      // float randNum = ((float) rand() / (RAND_MAX));
 
-      //Find refracted ray from indidence ray and normal
-      vec3 incidentRay = Vec4ToVec3(current.position) - previous;
-      vec4 normalVec4 = NormaliseNoHomogenous(current.position - spheres[current.sphereIndex].centre);
-      vec3 normalVec3 = Vec4ToVec3(normalVec4);
-      vec3 incidentNorm = normalize(incidentRay);
-      vec3 refractedRay = Refract(incidentNorm, normalVec3,spheres[current.sphereIndex].refractiveIndex);
-      vec4 refractedRayV4 = Vec3ToHomogenous(refractedRay);
+      // if(randNum >= 0.8)
+      // if()
+      // if(false)
+      // {
+        // castSpecularRay = true;
+        // cout << randNum << '\n';
+      // }
+      // else
+      // {
+        //Find refracted ray from indidence ray and normal
+        vec3 incidentRay = Vec4ToVec3(current.position) - previous;
+        vec4 normalVec4 = NormaliseNoHomogenous(current.position - spheres[current.sphereIndex].centre);
+        vec3 normalVec3 = Vec4ToVec3(normalVec4);
+        vec3 incidentNorm = normalize(incidentRay);
 
-      //Find the next intersection of the refracted ray
-      Intersection nextIntersection;
-      bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres);
-
-      //If there is an intersection
-      if(isIntersection)
-      {
-        // cout << refractedRayV4 << "\n";
-        //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-        result += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres) * spheres[current.sphereIndex].color);
-        // cout <<"result" <<result << "\n";
-      }
-      else//If there is no intersection, don't recurse anymore 
-      {
+        vec3 refractedRay;// = Refract(incidentNorm, normalVec3,spheres[current.sphereIndex].refractiveIndex);
+        float randNum = ((float) rand() / (RAND_MAX));
+        if(randNum < 0.9)
+        {
+          refractedRay = Refract(incidentNorm, normalVec3,spheres[current.sphereIndex].refractiveIndex);
+        }
+        else
+        {
+          refractedRay = Reflect(incidentNorm, normalVec3);//,spheres[current.sphereIndex].refractiveIndex);
+        }
         
-      }
+        // vec3 refractedRay;// = Refract(incidentNorm, normalVec3,spheres[current.sphereIndex].refractiveIndex);
+        vec4 refractedRayV4 = Vec3ToHomogenous(refractedRay);
+
+        //Find the next intersection of the refracted ray
+        Intersection nextIntersection;
+        //bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres);
+        bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres);
+
+        //If there is an intersection
+        if(isIntersection)
+        {
+          result += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres));// * spheres[current.sphereIndex].color);
+          // return result;
+        }
+        else//If there is no intersection, don't recurse anymore 
+        {
+          
+        }
+      // }
     }
 
     //============= End Refraction =============//
 
     //============= Specularity =============//
     bool castDiffuseRay = false;
-    bool castSpecularRay = false;
+    
 
     if(spheres[current.sphereIndex].smoothness < 1.0f && spheres[current.sphereIndex].smoothness > 0.0f && spheres[current.sphereIndex].refractiveIndex == 1.0f)
     {
@@ -1431,7 +1468,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
           // BRDF = 1.0f;
 
           //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,incidentRay,true,isAreaLight,spheres) * spheres[current.sphereIndex].color);
+          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres) * spheres[current.sphereIndex].color);
         }
         else//If there is no intersection, don't recurse anymore 
         {
@@ -1485,11 +1522,11 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       //If there is an interesction, recurse at +1 depth
       if(isIntersect)
       {
-        // float cosTheta = 2.0f * PI * rand2;
-        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosTheta));
+        // float cosThrefractiveIndexRatio = 2.0f * PI * rand2;
+        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosThrefractiveIndexRatio));
 
-        float cosTheta = rand1;
-        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosTheta*0.5f); //0.5f is the attenuation factor
+        float cosThrefractiveIndexRatio = rand1;
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosThrefractiveIndexRatio*0.5f); //0.5f is the attenuation factor
       }
       else//If there is no intersection, do nothing
       {
@@ -1513,7 +1550,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
     //Direct lighting
     //============= Direct Lighting =============//
-    if(spheres[current.sphereIndex].refractiveIndex == 1.0f)
+    if(spheres[current.sphereIndex].refractiveIndex == 1.0f)// || castSpecularRay)
     {    
       //In all cases, we sample the light (at maximum importance)
       if(isAreaLight)//arealight
@@ -1595,16 +1632,16 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
   float randY;
   float randZ;
 
-  float theta = 0;
+  float threfractiveIndexRatio = 0;
   float phi = 0;
   for(int i = 0; i < SPHERE_LIGHT_SAMPLES; i++)
   {
     //Spherical sampling
-    theta = ((float) rand() / (RAND_MAX)) * 2.0f * PI;
+    threfractiveIndexRatio = ((float) rand() / (RAND_MAX)) * 2.0f * PI;
     phi = acos((((float) rand() / (RAND_MAX)) * 2.0f) - 1.0f);
 
-    randX = cosf(theta)*sinf(phi);
-    randY = sinf(theta)*sinf(phi);
+    randX = cosf(threfractiveIndexRatio)*sinf(phi);
+    randY = sinf(threfractiveIndexRatio)*sinf(phi);
     randZ = cosf(phi);
 
     randX = (randX*SPHERE_LIGHT_RADIUS*2.0f) - SPHERE_LIGHT_RADIUS;
@@ -1675,34 +1712,36 @@ vec3 Reflect(const vec3 &incident, const vec3 &normal)
 vec3 Refract(const vec3 &incidentNormRay, const vec3 &normal, const float &IoR)
 {
     float cosi = glm::clamp(-1.0f, 1.0f, glm::dot(incidentNormRay, normal));
-    float etai = 1.0f;//index of refraction of previous medium
-    float etat = IoR;
+    float prevMediumIoR = 1.0f;//index of refraction of previous medium
+    float nextMediumIoR = IoR;//index of refraction of medium we are entereing
+    
     vec3 n = normal;
-    if (cosi < 0.0f)
+    //Check if hitting from outside or inside
+    if (cosi < 0.0f)//cosine of the the incident
     {
-      cosi = -cosi; 
+      cosi = -cosi;
     } 
     else 
     { 
-      swap(etai, etat); 
-      n = -normal;
+      swap(prevMediumIoR, nextMediumIoR);//swap if we're leaving the refractive geometry
+      n = -normal;//reverse normal
+      // cout << "reversenormal\n";
     }
-    float eta = etai / etat;
-    float k = 1.0f - eta * eta * (1.0f - cosi * cosi);
 
+
+    //Check for TotalInternalReflection
+    float refractiveIndexRatio = prevMediumIoR / nextMediumIoR;
+    float k = 1.0f - (refractiveIndexRatio * refractiveIndexRatio) * (1.0f - (cosi * cosi));
     if(k < 0.0f)
     {
-      return vec3(0,0,0);
-      cout << "asdf\n";
+      // total internal reflection. There is no refraction in this case
+      return Reflect(incidentNormRay,normal);//this might be wrong
+      cout << "TotalInternalReflection\n";
     }
-    else
+    else//if no T.I.R.
     {
-      // cout <<  (eta * incidentNormRay + (eta * cosi - sqrtf(k)) * normal) << "\n";
-      return (eta * incidentNormRay + (eta * cosi - sqrtf(k)) * normal);
+      return (refractiveIndexRatio * incidentNormRay + (refractiveIndexRatio * cosi - sqrtf(k)) * n);
     }
-    
-
-    // return (k < 0) ? 0 : eta * I + (eta * cosi - sqrtf(k)) * n;
 }
 
 
@@ -1722,19 +1761,19 @@ void CreateCoordinateSystem(const vec3 &N, vec3 &Nt, vec3 &Nb)
 
 vec3 UniformSampleHemisphere(const float &rand1, const float &rand2) 
 { 
-    // cos(theta) = r1 = y
-    // cos^2(theta) + sin^2(theta) = 1 -> sin(theta) = srtf(1 - cos^2(theta))
-    float sinTheta = sqrtf(1.0f - rand1 * rand1);
+    // cos(threfractiveIndexRatio) = r1 = y
+    // cos^2(threfractiveIndexRatio) + sin^2(threfractiveIndexRatio) = 1 -> sin(threfractiveIndexRatio) = srtf(1 - cos^2(threfractiveIndexRatio))
+    float sinThrefractiveIndexRatio = sqrtf(1.0f - rand1 * rand1);
     float phi = 2 * M_PI * rand2; 
-    float x = sinTheta * cosf(phi); 
-    float z = sinTheta * sinf(phi); 
+    float x = sinThrefractiveIndexRatio * cosf(phi); 
+    float z = sinThrefractiveIndexRatio * sinf(phi); 
     return vec3(x, rand1, z);
 
 
   // const float r = sqrtf(rand1);
-  // const float theta = 2.0f * PI * rand2;
-  //   const float x = r * cosf(theta);
-  //   const float y = r * sinf(theta);
+  // const float threfractiveIndexRatio = 2.0f * PI * rand2;
+  //   const float x = r * cosf(threfractiveIndexRatio);
+  //   const float y = r * sinf(threfractiveIndexRatio);
  
   //   return vec3(x, y, sqrtf(max(0.0f, 1.0f - rand1)));
 } 
