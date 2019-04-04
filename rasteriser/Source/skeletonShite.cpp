@@ -26,7 +26,6 @@ using glm::vec2;
 
 //============= Global Variables =============//
 bool quit;
-bool isWireframe;
 
 //============= Structures =============//
 // struct Triangle
@@ -80,8 +79,6 @@ int main( int argc, char* argv[] )
 {
   //Initially, do not quit
   quit = false;
-
-  isWireframe = true;
   
   // Initialise screen
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
@@ -118,14 +115,12 @@ int main( int argc, char* argv[] )
       
       for (int t = 0; t < triangles.size(); t++)
       {
-        triangles[t].v0 = /*projmatrix*/ invCameraMatrix * originalTriangles[t].v0;
+        triangles[t].v0 = invCameraMatrix * originalTriangles[t].v0;
         triangles[t].v1 = invCameraMatrix * originalTriangles[t].v1;
         triangles[t].v2 = invCameraMatrix * originalTriangles[t].v2;
         triangles[t].ComputeNormal();
       }
-      // clip
 
-      // w divide
       lightPos = invCameraMatrix * originalLightPos;
 
       Draw(screen, triangles, cameraPos, focalLength, lightPos, lightPower, indirectLightPowerPerArea);
@@ -267,11 +262,6 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
       yaw = yaw % 360;
     }
 
-    if ( e.key.keysym.scancode == SDL_SCANCODE_N )
-    {
-      isWireframe = !isWireframe;
-    }
-
     //Quit trigger
     if( e.type == SDL_QUIT )
     {
@@ -291,9 +281,7 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
 
 /////////
 //This draws the polygon from some vertices
-void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, 
-                 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, 
-                 vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance )
+void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance )
 {
 
   //Find number of vertices of polygon (3 for triangle)
@@ -314,25 +302,22 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
   //A vertex simply contains a vec4 position. The passed in vertices are in camera space. 
   //We need to enforce the w dimension of each to be 1 (since strictly the homogenous component should be introduced here). 
   //Note that we need to fill three "pixel" structs with the correct information
-  
-  //Initalise Ws and set the pos3d/zinv (these cant be set while in clip space). If clipping occurs we will need to infer the correct pos3d/zinv for the clipped points by interpolating between the values set here.
   for( int i=0; i<V; ++i )
   {
     verticesCopy[i].position.w = 1.0f;
-    vertexPixels[i].pos3d = verticesCopy[i].position;
-    vertexPixels[i].zinv  = 1.0f/verticesCopy[i].position.z;
   }
 
-  //Now we transform into clip space by setting the w component of each vertex to z/focalLength
-  
-  //Calc W component.
+  //Now we need to create the projection 4 x 4 matrix 
+  mat4 projectionMatrix;
+  CalculateProjectionMatrix(projectionMatrix);
+
+  //Now we need to multiply the vertices by this matrix which will transform the vertices into clip space
   for( int i=0; i<V; ++i )
   {
-    verticesCopy[i].position.w = verticesCopy[i].position.z / focalLength;
+    verticesCopy[i].position = projectionMatrix * verticesCopy[i].position;
   }
-
   //Now the vertices in verticesCopy are in clip space and we need to carry out clipping
-  
+
       ////ACTUAL CLIPPING START////
 
 
@@ -340,36 +325,36 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
 
       /////ACTUAL CLIPPING END/// /
 
-  //Now we need to perform the perspective divide (division by W). 
-  //Then we are in NDC (normalised device coords) space, where all three dimensions are in range [-1,1]. 
-  //Do perspective divide
-  for(int i=0; i<V; ++i)
+
+  //Now we need to perform the perspective divide (division by W). Then we are in NDC space, where all three dimensions are in range [-1,1]. --Apparently NDC space is a cartesian space--
+  for( int i=0; i<V; ++i )
   {
     verticesCopy[i].position.x = verticesCopy[i].position.x / verticesCopy[i].position.w; 
     verticesCopy[i].position.y = verticesCopy[i].position.y / verticesCopy[i].position.w;
     verticesCopy[i].position.z = verticesCopy[i].position.z / verticesCopy[i].position.w;
     verticesCopy[i].position.w = 1.0f; 
   }
-  
 
-  //set the x and y coordinates to pixel values
+  //set the pos3d attribute and zinv attribute of the pixels:
   for( int i=0; i<V; ++i )
   {
-    vertexPixels[i].x     = verticesCopy[i].position.x + SCREEN_WIDTH/2;
-    vertexPixels[i].y     = verticesCopy[i].position.y + SCREEN_HEIGHT/2;
+    vertexPixels[i].pos3d = verticesCopy[i].position;
+    if(verticesCopy[i].position.z == 0)
+    {
+      vertexPixels[i].zinv = 0;
+    }
+    else
+    {
+      vertexPixels[i].zinv = 1.0f/verticesCopy[i].position.z;
+    }
   }
 
-/*  
   //Now we need to do a viewport transform to get the point into pixel space (also known as raster space). 
   for( int i=0; i<V; ++i )
   {
     vertexPixels[i].x = (verticesCopy[i].position.x + 1) * 0.5f * (SCREEN_WIDTH  - 1);
     vertexPixels[i].y = (verticesCopy[i].position.y + 1) * 0.5f * (SCREEN_HEIGHT - 1);
-    vertexPixels[i].pos3d = vec4(1.0f,1.0f,1.0f,1.0f);
-    vertexPixels[i].zinv = 1;
   }
-  */
-  
 
   
   #pragma endregion Clipping
@@ -558,39 +543,24 @@ void DrawPolygonRows( screen* screen,
                       vec4& currentNormal, vec3& currentReflectance, 
                       vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea)
 {
-  if(isWireframe)
-  {  
-    for(int i = 0; i < leftPixels.size(); i++)
-    {
-      PutPixelSDL(screen, leftPixels[i].x, leftPixels[i].y, vec3(1,1,1));
-    }
-    for(int i = 0; i < rightPixels.size(); i++)
-    {
-      PutPixelSDL(screen, rightPixels[i].x, rightPixels[i].y, vec3(1,1,1));
-    }
-  }
-  else
+  vector<Pixel> pixelsBetween(SCREEN_HEIGHT);
+
+  //For each entry in left/right pixels
+  for (int i = 0; i < leftPixels.size(); i++)
   {
-    vector<Pixel> pixelsBetween(SCREEN_HEIGHT);
+    int numberOfPixelsBetween = rightPixels[i].x - leftPixels[i].x + 1;
 
-    //For each entry in left/right pixels
-    for (int i = 0; i < leftPixels.size(); i++)
+    pixelsBetween.resize(numberOfPixelsBetween);
+    InterpolatePixel(leftPixels[i], rightPixels[i], pixelsBetween);
+
+    for(int p = 0; p < pixelsBetween.size(); p++)
     {
-      int numberOfPixelsBetween = rightPixels[i].x - leftPixels[i].x + 1;
-
-      pixelsBetween.resize(numberOfPixelsBetween);
-      InterpolatePixel(leftPixels[i], rightPixels[i], pixelsBetween);
-
-      for(int p = 0; p < pixelsBetween.size(); p++)
+      if(pixelsBetween[p].y < SCREEN_HEIGHT && pixelsBetween[p].y >= 0 && pixelsBetween[p].x < SCREEN_WIDTH && pixelsBetween[p].x >=0)
       {
-        if(pixelsBetween[p].y < SCREEN_HEIGHT && pixelsBetween[p].y >= 0 && pixelsBetween[p].x < SCREEN_WIDTH && pixelsBetween[p].x >=0)
-        {
-          PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
-        } 
-      }
+        PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
+      } 
     }
   }
-
 }
 
 
