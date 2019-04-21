@@ -29,6 +29,7 @@ using glm::mat4;
 #define APERTURE 0.0f//e.g. 0.1f
 // #define isAAOn false
 #define FOG_STRENGTH 0.1f
+#define USE_INPUTS false
 
 //============= Global Variables =============//
 int timeT;
@@ -158,7 +159,7 @@ int main( int argc, char* argv[] )
   LoadTestModel( originalTriangles );
 
   //Camera control
-  vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
+  vec4 cameraPos(0.0f,0.0f,-2.3f,1.0f);
   // vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   mat4 cameraMatrix;
   int yaw = 0;
@@ -193,9 +194,9 @@ int main( int argc, char* argv[] )
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec3 lightColour = LIGHT_POWER * vec3( 1.0f, 1.0f, 1.0f );
 
-  bool isAAOn = false;
+  bool isAAOn = true;
 
-  bool isAreaLight = false;
+  bool isAreaLight = true;
   
   bool isFog = false;
 
@@ -282,7 +283,6 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
   // FOCAL LENGTH
   float focalLength = SCREEN_WIDTH/1.5f;
-  cout << focalLength << "\n";
 
   //Indirect lighting approximation
   // vec3 indirectLight = 0.5f * vec3( 1, 1, 1 );
@@ -637,149 +637,151 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
   {
     if( e.type != SDL_KEYDOWN) {continue;}
 
-    //Move camera with arrow keys
-
-    //MOVE FORWARDS/BACKWARDS
-    if( e.key.keysym.scancode == SDL_SCANCODE_UP )
+    if(USE_INPUTS)
     {
-      cameraPos.z += movementSpeed;
-      // cout << cameraPos << "\n";
-
-    }
-    if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
-    {
-      //Move camera backward
-      cameraPos.z -= movementSpeed;
-      // cout << cameraPos << "\n";
-
-    }
-
-    //MOVE LEFT/RIGHT
-    if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
-    {
-      //Move camera left
-      cameraPos.x -= movementSpeed;
-    }
-    if( e.key.keysym.scancode == SDL_SCANCODE_RIGHT )
-    {
-      //Move camera right
-      cameraPos.x += movementSpeed;
-    }
-
-    //MOVE UP/DOWN
-    if( e.key.keysym.scancode == SDL_SCANCODE_J )
-    {
-      //Move camera left
-      cameraPos.y -= movementSpeed;
-    }
-    if( e.key.keysym.scancode == SDL_SCANCODE_M )
-    {
-      //Move camera right
-      cameraPos.y += movementSpeed;
-    }
-
-    //Move light with WASD
-    if ( e.key.keysym.scancode == SDL_SCANCODE_W )
-    {
-      lightPos.z += movementSpeed;
-    }
-    if ( e.key.keysym.scancode == SDL_SCANCODE_S )
-    {
-      lightPos.z -= movementSpeed;
-    }
-    if ( e.key.keysym.scancode == SDL_SCANCODE_D )
-    {
-      lightPos.x += movementSpeed;
-    }
-    if ( e.key.keysym.scancode == SDL_SCANCODE_A )
-    {
-      lightPos.x -= movementSpeed;
-    }
-    if ( e.key.keysym.scancode == SDL_SCANCODE_R )
-    {
-      lightPos.y -= movementSpeed;
-    }
-    if ( e.key.keysym.scancode == SDL_SCANCODE_F )
-    {
-      lightPos.y += movementSpeed;
-    }
-
-    //ROTATE AROUND Y-AXIS
-    if ( e.key.keysym.scancode == SDL_SCANCODE_PERIOD )
-    {
-      yaw -= 5;
-      yaw = yaw % 360;
-    }
-    if ( e.key.keysym.scancode == SDL_SCANCODE_COMMA )
-    {
-      yaw += 5;
-      yaw = yaw % 360;
-    }
-
-    //Switch on/off AA
-    if ( e.key.keysym.scancode == SDL_SCANCODE_N )
-    {
-      if(isAAOn)
+      // USE_INPUTS
+      //Move camera with arrow keys
+      //MOVE FORWARDS/BACKWARDS
+      if( e.key.keysym.scancode == SDL_SCANCODE_UP )
       {
-        isAAOn = false;
+        cameraPos.z += movementSpeed;
+        // cout << cameraPos << "\n";
+
       }
-      else
+      if( e.key.keysym.scancode == SDL_SCANCODE_DOWN )
       {
-        isAAOn = true;
+        //Move camera backward
+        cameraPos.z -= movementSpeed;
+        // cout << cameraPos << "\n";
+
       }
+
+      //MOVE LEFT/RIGHT
+      if( e.key.keysym.scancode == SDL_SCANCODE_LEFT )
+      {
+        //Move camera left
+        cameraPos.x -= movementSpeed;
+      }
+      if( e.key.keysym.scancode == SDL_SCANCODE_RIGHT )
+      {
+        //Move camera right
+        cameraPos.x += movementSpeed;
+      }
+
+      //MOVE UP/DOWN
+      if( e.key.keysym.scancode == SDL_SCANCODE_J )
+      {
+        //Move camera left
+        cameraPos.y -= movementSpeed;
+      }
+      if( e.key.keysym.scancode == SDL_SCANCODE_M )
+      {
+        //Move camera right
+        cameraPos.y += movementSpeed;
+      }
+
+      //Move light with WASD
+      if ( e.key.keysym.scancode == SDL_SCANCODE_W )
+      {
+        lightPos.z += movementSpeed;
+      }
+      if ( e.key.keysym.scancode == SDL_SCANCODE_S )
+      {
+        lightPos.z -= movementSpeed;
+      }
+      if ( e.key.keysym.scancode == SDL_SCANCODE_D )
+      {
+        lightPos.x += movementSpeed;
+      }
+      if ( e.key.keysym.scancode == SDL_SCANCODE_A )
+      {
+        lightPos.x -= movementSpeed;
+      }
+      if ( e.key.keysym.scancode == SDL_SCANCODE_R )
+      {
+        lightPos.y -= movementSpeed;
+      }
+      if ( e.key.keysym.scancode == SDL_SCANCODE_F )
+      {
+        lightPos.y += movementSpeed;
+      }
+
+      //ROTATE AROUND Y-AXIS
+      if ( e.key.keysym.scancode == SDL_SCANCODE_PERIOD )
+      {
+        yaw -= 5;
+        yaw = yaw % 360;
+      }
+      if ( e.key.keysym.scancode == SDL_SCANCODE_COMMA )
+      {
+        yaw += 5;
+        yaw = yaw % 360;
+      }
+
+      //Switch on/off AA
+      if ( e.key.keysym.scancode == SDL_SCANCODE_N )
+      {
+        if(isAAOn)
+        {
+          isAAOn = false;
+        }
+        else
+        {
+          isAAOn = true;
+        }
+      }
+
+      //Toggle arealight/pointlight
+      if( e.key.keysym.scancode == SDL_SCANCODE_G)
+      {
+        isAreaLight = !isAreaLight;
+      }
+
+      //Move focalsphereradius
+      if (e.key.keysym.scancode == SDL_SCANCODE_O)
+      {
+        focalSphereRad += 0.2f;
+      }
+      if (e.key.keysym.scancode == SDL_SCANCODE_L)
+      {
+        focalSphereRad -= 0.2f;
+      }
+
+      if (e.key.keysym.scancode == SDL_SCANCODE_L)
+      {
+        focalSphereRad -= 0.2f;
+      }
+
+      if (e.key.keysym.scancode == SDL_SCANCODE_Q)
+      {
+        isFog = !isFog;
+      }
+
+      //Restart sampling on any input
+      ResetScreenAccumulator(screenAcc);
+      sampleCount = 1;
+
+      //Recompute cameraMat on any input
+      cameraMatrix[0][0] = cos( yaw * PI / 180 );
+      cameraMatrix[0][1] = 0;
+      cameraMatrix[0][2] = sin( yaw * PI / 180 );
+      cameraMatrix[0][3] = 0;
+
+      cameraMatrix[1][0] = 0;
+      cameraMatrix[1][1] = 1;
+      cameraMatrix[1][2] = 0;
+      cameraMatrix[1][3] = 0;
+
+      cameraMatrix[2][0] = -sin( yaw * PI / 180 );
+      cameraMatrix[2][1] = 0;
+      cameraMatrix[2][2] = cos( yaw * PI / 180 );
+      cameraMatrix[2][3] = 0;
+
+      cameraMatrix[3][0] = cameraPos.x;
+      cameraMatrix[3][1] = cameraPos.y;
+      cameraMatrix[3][2] = cameraPos.z;
+      cameraMatrix[3][3] = 1;
     }
-
-    //Toggle arealight/pointlight
-    if( e.key.keysym.scancode == SDL_SCANCODE_G)
-    {
-      isAreaLight = !isAreaLight;
-    }
-
-    //Move focalsphereradius
-    if (e.key.keysym.scancode == SDL_SCANCODE_O)
-    {
-      focalSphereRad += 0.2f;
-    }
-    if (e.key.keysym.scancode == SDL_SCANCODE_L)
-    {
-      focalSphereRad -= 0.2f;
-    }
-
-    if (e.key.keysym.scancode == SDL_SCANCODE_L)
-    {
-      focalSphereRad -= 0.2f;
-    }
-
-    if (e.key.keysym.scancode == SDL_SCANCODE_Q)
-    {
-      isFog = !isFog;
-    }
-
-    //Restart sampling on any input
-    ResetScreenAccumulator(screenAcc);
-    sampleCount = 1;
-
-    //Recompute cameraMat on any input
-    cameraMatrix[0][0] = cos( yaw * PI / 180 );
-    cameraMatrix[0][1] = 0;
-    cameraMatrix[0][2] = sin( yaw * PI / 180 );
-    cameraMatrix[0][3] = 0;
-
-    cameraMatrix[1][0] = 0;
-    cameraMatrix[1][1] = 1;
-    cameraMatrix[1][2] = 0;
-    cameraMatrix[1][3] = 0;
-
-    cameraMatrix[2][0] = -sin( yaw * PI / 180 );
-    cameraMatrix[2][1] = 0;
-    cameraMatrix[2][2] = cos( yaw * PI / 180 );
-    cameraMatrix[2][3] = 0;
-
-    cameraMatrix[3][0] = cameraPos.x;
-    cameraMatrix[3][1] = cameraPos.y;
-    cameraMatrix[3][2] = cameraPos.z;
-    cameraMatrix[3][3] = 1;
-
 
     //Quit trigger
     if( e.type == SDL_QUIT )
@@ -835,7 +837,7 @@ bool ClosestIntersection(
     mat3 A = mat3( -dir3, e1, e2 );
 
     //x = (t u v)^T
-    //COME BACK HERE todo cramar's rule instead of inbuilt inverse
+
     vec3 x = glm::inverse( A ) * b;
 
     float t = x.x;//if neg, can reject immediately
@@ -843,7 +845,7 @@ bool ClosestIntersection(
     float v = x.z;
 
     //Check if is intersection is within triangle
-    if ( (u >= 0.0f) && (v >= 0.0f) && (u + v <= 1.001f) && (t > 0.0f) )
+    if ( (u >= 0.0f) && (v >= 0.0f) && (u + v <= 1.00f) && (t > 0.0f) )
     {
       result = true;
       //Compute "intersection" structure
@@ -982,7 +984,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
     if ( glm::length(lightIntersection.position - intersection.position) < lightDist )
     {
       //Set to black (i.e., a shadow)
-      // D = vec3(1.0f,0.0f,1.0f);
+      D = vec3(0.0f,0.0f,0.0f);
     }
   }
 
