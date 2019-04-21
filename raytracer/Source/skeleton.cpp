@@ -281,7 +281,8 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
   // FOCAL LENGTH
-  float focalLength = SCREEN_WIDTH/2;
+  float focalLength = SCREEN_WIDTH/1.5f;
+  cout << focalLength << "\n";
 
   //Indirect lighting approximation
   // vec3 indirectLight = 0.5f * vec3( 1, 1, 1 );
