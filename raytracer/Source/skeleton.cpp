@@ -1,3 +1,6 @@
+//DOF : focal sphere rad 1.7, aperture 0.2
+//FOG : strength 0.03
+
 #include <iostream>
 #include <glm/glm.hpp>
 #include <SDL.h>
@@ -26,9 +29,9 @@ using glm::mat4;
 #define SPHERE_LIGHT_RADIUS 0.05f
 #define SPHERE_LIGHT_SAMPLES 10
 // #define FOCAL_SPHERE_RADIUS 250.0f
-#define APERTURE 0.0f//e.g. 0.1f
+#define APERTURE 0.0f//use 0.2f
 // #define isAAOn false
-#define FOG_STRENGTH 0.1f
+#define FOG_STRENGTH 0.0f//use 0.03f
 #define USE_INPUTS false
 
 //============= Global Variables =============//
@@ -165,7 +168,7 @@ int main( int argc, char* argv[] )
   int yaw = 0;
 
   //Focusing
-  float focalSphereRad = 1.4f;
+  float focalSphereRad = 1.7f;
 
   //Initialise camera matrix
   cameraMatrix[0][0] = cos( yaw * PI / 180 );
@@ -194,11 +197,11 @@ int main( int argc, char* argv[] )
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec3 lightColour = LIGHT_POWER * vec3( 1.0f, 1.0f, 1.0f );
 
-  bool isAAOn = true;
+  bool isAAOn = false;
 
-  bool isAreaLight = true;
+  bool isAreaLight = false;
   
-  bool isFog = false;
+  bool isFog = true;
 
   
 
@@ -475,7 +478,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
             if(isFog)
             {            
               //============= Fog =============//
-              float fogAmount = FogAmount(vec3(apertureSample[i].x,apertureSample[i].y,0.0f),Vec4ToVec3(closestIntersections[i].position));
+              float fogAmount = FogAmount(vec3(0.0f,0.0f,0.0f),Vec4ToVec3(closestIntersections[i].position));
               vec3 fogColour = vec3(0.8f*fogAmount,0.8f*fogAmount,0.8f*fogAmount);
               // cout << fogAmount << "\n";
               colourTotal += fogColour;
@@ -581,7 +584,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           if(isFog)
           {
             //============= Fog =============//
-            float fogAmount = FogAmount(vec3(randX,randY,0.0f),Vec4ToVec3(closestIntersection.position));
+            float fogAmount = FogAmount(vec3(0.0f,0.0f,0.0f),Vec4ToVec3(closestIntersection.position));
             vec3 fogColour = vec3(0.8f*fogAmount,0.8f*fogAmount,0.8f*fogAmount);
             // cout << fogAmount << "\n";
             currentColour += fogColour;
@@ -741,15 +744,12 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
       if (e.key.keysym.scancode == SDL_SCANCODE_O)
       {
         focalSphereRad += 0.2f;
+        cout << focalSphereRad << "\n";
       }
       if (e.key.keysym.scancode == SDL_SCANCODE_L)
       {
         focalSphereRad -= 0.2f;
-      }
-
-      if (e.key.keysym.scancode == SDL_SCANCODE_L)
-      {
-        focalSphereRad -= 0.2f;
+        cout << focalSphereRad << "\n";
       }
 
       if (e.key.keysym.scancode == SDL_SCANCODE_Q)
@@ -1766,10 +1766,10 @@ vec3 UniformSampleHemisphere(const float &rand1, const float &rand2)
 { 
     // cos(threfractiveIndexRatio) = r1 = y
     // cos^2(threfractiveIndexRatio) + sin^2(threfractiveIndexRatio) = 1 -> sin(threfractiveIndexRatio) = srtf(1 - cos^2(threfractiveIndexRatio))
-    float sinThrefractiveIndexRatio = sqrtf(1.0f - rand1 * rand1);
+    float sinTheta = sqrtf(1.0f - rand1 * rand1);
     float phi = 2 * M_PI * rand2; 
-    float x = sinThrefractiveIndexRatio * cosf(phi); 
-    float z = sinThrefractiveIndexRatio * sinf(phi); 
+    float x = sinTheta * cosf(phi); 
+    float z = sinTheta * sinf(phi); 
     return vec3(x, rand1, z);
 
 
