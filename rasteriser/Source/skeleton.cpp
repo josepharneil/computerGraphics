@@ -201,23 +201,29 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
     }
   }
 
+
+  //============= Clipping =============//
   //vector to hold all clipped triangles
   vector<Triangle> clippedTriangles;
+	// clippedTriangles.clear();
+	// clippedTriangles.reserve( 40 );
   
-
   //Apply clipping to each triangle
   for( uint32_t i=0; i<triangles.size(); ++i )
   {
     //temp holds the resulting triangles from clipping a single triangle
-     vector<Triangle> temp = Clip(triangles[i]);
+    vector<Triangle> temp = Clip(triangles[i]);
 
-     for( uint32_t j=0; j<temp.size(); ++j )
-     {
-       //add each triangle from the result vector to clippedTriangles
-       clippedTriangles.push_back(temp[j]);
-     }
+    //each triangle resultant from clipping
+    for( uint32_t j=0; j<temp.size(); ++j )
+    {
+      //add each triangle from the result vector to clippedTriangles
+      clippedTriangles.push_back(temp[j]);
+    }
   }
-      
+  //============= END Clipping =============//
+
+
   //For each clipped triangle
   for( uint32_t i=0; i<clippedTriangles.size(); ++i )
   {
@@ -233,8 +239,9 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
     //Draw polygon for each triangle
     DrawPolygon( screen, vertices, cameraPos, focalLength, depthBuffer, 
     lightPos, lightPower, indirectLightPowerPerArea, currentNormal, currentReflectance );
-
   }
+
+  
 }
 //============= END Draw =============//
 
@@ -695,34 +702,48 @@ vector<Triangle> Clip(Triangle& triangle)
   vertices.push_back(triangle.v2);
 
   
-  
+
+  //... (do for all 6 planes of view frustum)  
+  //result = ClipToPlane(inputVertices, planePoint, planeNormal)
 
   //clip to far plane
-  //result = ClipToPlane(inputVertices, planePoint, planeNormal)
-  ClipToPlane(vertices,vec4(0,0,FAR_CLIP ,1),vec4(0,0,-1,1));
+
+
+  // cout << ANGLE_OF_VIEW;
+
+  float cosHalfAlpha = cosf(ANGLE_OF_VIEW/2);
+  float sinHalfAlpha = sinf(ANGLE_OF_VIEW/2);
+
+  //clip to top
+  // ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, cosHalfAlpha, sinHalfAlpha, 1.0f ) );
+  cout << vertices.size() << "\n";
+  ClipToPlane(vertices,vec4(0,-0.5f,0,1), vec4(0.0f, 1, 0, 1.0f ) );
+  cout << vertices.size() << "\n";
+  ClipToPlane(vertices,vec4(0,0.5f,0,1), vec4(0.0f, -1, 0, 1.0f ) );
+  cout << vertices.size() << "\n";
+
+  //clip to left
+  // ClipToPlane(vertices,vec4(0,0,0,1), vec4( cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
+  
+  //clip to bottom
+  // ClipToPlane(vertices,vec4(0,0,0,1), vec4( 0.0f,-cosHalfAlpha,sinHalfAlpha, 1.0f) );
+
+  //clip to right
+  // ClipToPlane(vertices,vec4(0,0,0,1), vec4(-cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
 
   //clip to near plane
   ClipToPlane(vertices,vec4(0,0,NEAR_CLIP,1),vec4(0,0,1,1));
 
-  float cosHalfAlpha = cosf(ANGLE_OF_VIEW/2);
-  float sinHalfAlpha = sin(ANGLE_OF_VIEW/2);
+  //clip to far plane
+  // ClipToPlane(vertices,vec4(0,0,FAR_CLIP ,1),vec4(0,0,-1,1));
 
-  //clip to top
-  ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, cosHalfAlpha, sinHalfAlpha, 1.0f ) );
 
-  //clip to right
-  ClipToPlane(vertices,vec4(0,0,0,1), vec4(-cosHalfAlpha, 0.0f, sinHalfAlpha, 1.0f) );
 
-  //clip to bottom
-  ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, -cosHalfAlpha, sinHalfAlpha, 1.0f) );
 
-  //clip to left
-  ClipToPlane(vertices,vec4(0,0,0,1), vec4(cosHalfAlpha, 0.0f, sinHalfAlpha, 1.0f) );
-
-  //... (do for all 6 planes of view frustum)
   
   //triangulate the polygon (might already be a triangle)
   vector<Triangle> result = Triangulate(vertices,triangle.color);
+
   return result;
 }
 
@@ -731,6 +752,10 @@ vector<Triangle> Clip(Triangle& triangle)
 vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
 {
   vector<Triangle> result;
+  if(vertices.size() < 3)
+  {
+    return result;
+  }
   
   //if the passed in polygon is a triagle, just place it in the list and return immediately.
   if(vertices.size() == 3)
@@ -740,12 +765,13 @@ vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
   }
   
   //number of triangles resulting from triangulation
-  int numTriangles = ceil(((float)vertices.size()) /2.0f);
+  int numTriangles = (int)(ceil(((float)vertices.size()) /2.0f));
 
   // cout << vertices.size() << "num tri: " << numTriangles << "\n";
   for(int i = 0; i<numTriangles; i++ )
   {
     result.push_back(Triangle(vertices[0],vertices[i+1],vertices[i+2],color));
+
     // cout << i << "\n";
     // cout << result[i].v0 << "\n";
     // cout << result[i].v1 << "\n";
@@ -766,6 +792,13 @@ float DotNoHomogenous(const vec4 A, const vec4 B)
 //note that the order of vertices is important to specifying the 
 void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
 {
+  if(inputVertices.size() < 3)
+  {
+    return;
+  }
+
+
+
   vector<vec4> result;
 
   int n = inputVertices.size();
@@ -798,6 +831,9 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
   }
 
   inputVertices = result;
+
+  // if(inputVertices.size() > 3)
+    // cout << inputVertices.size() << "\n";
   
   // return result;
   
