@@ -711,8 +711,10 @@ vector<Triangle> Clip(Triangle& triangle)
 
   // cout << ANGLE_OF_VIEW;
 
-  float cosHalfAlpha = cosf((ANGLE_OF_VIEW*0.8f)/2);
-  float sinHalfAlpha = sinf((ANGLE_OF_VIEW*0.8f)/2);
+  // float cosHalfAlpha = cosf((ANGLE_OF_VIEW*0.8f)/2);
+  // float sinHalfAlpha = sinf((ANGLE_OF_VIEW*0.8f)/2);
+  float cosHalfAlpha = cosf((ANGLE_OF_VIEW)/2);
+  float sinHalfAlpha = sinf((ANGLE_OF_VIEW)/2);
 
   //clip to near plane
   ClipToPlane(vertices,vec4(0,0,0.1f,1),vec4(0,0,1,1));
