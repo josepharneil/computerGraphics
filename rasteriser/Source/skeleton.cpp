@@ -71,7 +71,11 @@ void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float&
 void PixelShader(const Pixel& p, screen* s, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea );
 vec4 NormaliseNoHomogenous(vec4 vector4);
 void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
-void CalculateProjectionMatrix(mat4& projectionMatrix);
+
+vector<Triangle> Clip(Triangle& triangle);
+vector<Triangle> Triangulate(vector<Vertex> vertices, const vec4 normal, const vec3 color);
+
+
 #pragma endregion FunctionDefinitions
 //============= END Function Definitions =============//
 
@@ -156,19 +160,35 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
       depthBuffer[y][x] = 0;
     }
   }
-    
+
+  //vector to hold all clipped triangles
+  vector<Triangle> clippedTriangles;
   
-  //For each triangle
+
+  //Apply clipping to each triangle
   for( uint32_t i=0; i<triangles.size(); ++i )
+  {
+    //temp holds the resulting triangles from clipping a single triangle
+     vector<Triangle> temp = Clip(triangles[i]);
+
+     for( uint32_t j=0; j<temp.size(); ++j )
+     {
+       //add each triangle from the result vector to clippedTriangles
+       clippedTriangles.push_back(temp[j]);
+     }
+  }
+      
+  //For each clipped triangle
+  for( uint32_t i=0; i<clippedTriangles.size(); ++i )
   {
     //Construct vector of triangle vertices
     vector<Vertex> vertices(3);
-    vertices[0].position = triangles[i].v0;
-    vertices[1].position = triangles[i].v1;
-    vertices[2].position = triangles[i].v2;
+    vertices[0].position = clippedTriangles[i].v0;
+    vertices[1].position = clippedTriangles[i].v1;
+    vertices[2].position = clippedTriangles[i].v2;
 
-    vec4 currentNormal = triangles[i].normal;
-    vec3 currentReflectance = triangles[i].color;
+    vec4 currentNormal = clippedTriangles[i].normal;
+    vec3 currentReflectance = clippedTriangles[i].color;
 
     //Draw polygon for each triangle
     DrawPolygon( screen, vertices, cameraPos, focalLength, depthBuffer, 
@@ -320,45 +340,6 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
   DrawPolygonRows( screen, leftPixels, rightPixels, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
 }
 
-/*
-//should pass an empty vector of vertices for result
-//also need a version for Y and Z
-void ClipPolygonComponentX(vector<Vertex>& vertices,float componentFactor, vector<Vertex>& result)
-{
-  Vertex previousVertex = vertices[vertices.length -1];
-  float previousComponent = previousVertex.position.x * componentFactor;
-  bool previousInside = previousComponent <= previousVertex.position.w;
-
-  for(int i = 0; i++; i < vertices.length)
-  {
-    Vertex currentVertex = vertices[i];
-    float currentComponent = currentVertex.position.x * componentFactor;
-    boolean currentInside = currentComponent <= currentVertex.position.w;
-
-    if(currentInside ^ previousInside) //^ is XOR
-    {
-      float lerpAmt = (previousVertex.position.w - previousComponent) /
-					((previousVertex.position.w - previousComponent) - 
-					 (currentVertex.position.w - currentComponent));
-    }
-
-    if(currentInside) 
-    {
-      result.insert(0,currentVertex); //add currentVertex to result 
-    }
-
-    previousVertex = currentVertex;
-    previousComponent = currentComponent;
-    previousInside = currentInside;
-  }
-}
-
-// componentIndex is 0 for x, 1 for y, 2 for z
-boolean ClipPolygonAxis(vector<Vertex> vertices, vector<Vertex> auxilliaryList,int componentIndex)
-{
-
-}
-*/
 
 //Projects scene point (triangle vertex) onto image plane
 void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength)
@@ -659,27 +640,17 @@ void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix)
   camMatrix[3][3] = 1;
 }
 
-void CalculateProjectionMatrix(mat4& projectionMatrix)
+//clip triangle, and return a vector of the resulting triangles
+vector<Triangle> Clip(Triangle& triangle)
 {
-  float S = 1.0f/tan((FIELD_OF_VIEW/2.0f)*(PI / 180.0f));
+  vector<Triangle> result;
+  result.push_back(triangle);
+  return result;
+}
 
-  projectionMatrix[0][0] = S;
-  projectionMatrix[0][1] = 0.0f;
-  projectionMatrix[0][2] = 0.0f;
-  projectionMatrix[0][3] = 0.0f;
-
-  projectionMatrix[1][0] = 0.0f;
-  projectionMatrix[1][1] = S;
-  projectionMatrix[1][2] = 0.0f;
-  projectionMatrix[1][3] = 0.0f;
-
-  projectionMatrix[2][0] = 0.0f;
-  projectionMatrix[2][1] = 0.0f;
-  projectionMatrix[2][2] = -FIELD_OF_VIEW/(FIELD_OF_VIEW - NEAR_CLIP);
-  projectionMatrix[2][3] = -1.0f;
-
-  projectionMatrix[3][0] = 0.0f;
-  projectionMatrix[3][1] = 0.0f;
-  projectionMatrix[3][2] = -(FIELD_OF_VIEW * NEAR_CLIP)/(FIELD_OF_VIEW - NEAR_CLIP);
-  projectionMatrix[3][3] = 0.0f;
+//use fan triangulation to triangluate the given polygon (specified by ordered list of vertices), return a vector of triangles.
+//color and normal are only passed so that we can create triangles
+vector<Triangle> Triangulate(vector<Vertex> vertices, const vec4 normal, const vec3 color)
+{
+  
 }
