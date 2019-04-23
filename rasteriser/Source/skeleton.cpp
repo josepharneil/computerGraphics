@@ -75,7 +75,7 @@ void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
 vector<Triangle> Clip(Triangle& triangle);
 vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color);
 float DotNoHomogenous(const vec4 A, const vec4 B);
-vector<vec4> ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal);
+void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal);
 
 
 #pragma endregion FunctionDefinitions
@@ -694,23 +694,30 @@ vector<Triangle> Clip(Triangle& triangle)
   vertices.push_back(triangle.v1);
   vertices.push_back(triangle.v2);
 
-  //clip to near plane
+  
   
 
   //clip to far plane
-  vertices = ClipToPlane(vertices,vec4(0,0,FAR_CLIP ,1),vec4(0,0,-1,1));
+  //result = ClipToPlane(inputVertices, planePoint, planeNormal)
+  ClipToPlane(vertices,vec4(0,0,FAR_CLIP ,1),vec4(0,0,-1,1));
 
-  vertices = ClipToPlane(vertices,vec4(0,0,NEAR_CLIP,1),vec4(0,0,1,1));
+  //clip to near plane
+  ClipToPlane(vertices,vec4(0,0,NEAR_CLIP,1),vec4(0,0,1,1));
+
+  float cosHalfAlpha = cosf(ANGLE_OF_VIEW/2);
+  float sinHalfAlpha = sin(ANGLE_OF_VIEW/2);
 
   //clip to top
-  // vertices = ClipToPlane(vertices,vec4(0,0,FAR_CLIP,1),vec4(0,0,-1,1));
-
-  //clip to left
-  // vertices = ClipToPlane(vertices,vec4(0,0,FAR_CLIP,1),vec4(0,0,-1,1));
-
-  //clip to bottom
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, cosHalfAlpha, sinHalfAlpha, 1.0f ) );
 
   //clip to right
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4(-cosHalfAlpha, 0.0f, sinHalfAlpha, 1.0f) );
+
+  //clip to bottom
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, -cosHalfAlpha, sinHalfAlpha, 1.0f) );
+
+  //clip to left
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4(cosHalfAlpha, 0.0f, sinHalfAlpha, 1.0f) );
 
   //... (do for all 6 planes of view frustum)
   
@@ -757,7 +764,7 @@ float DotNoHomogenous(const vec4 A, const vec4 B)
 
 //clips a convex polygon to the plane specified by the point planePoint and the normal planeNormal, returns a vector<vec4> specifying the resultant polygon
 //note that the order of vertices is important to specifying the 
-vector<vec4> ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
+void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
 {
   vector<vec4> result;
 
@@ -789,8 +796,10 @@ vector<vec4> ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 plan
     vec4 I = inputVertices[n-1] + t*(inputVertices[0] - inputVertices[n-1]);
     result.push_back(I);
   }
+
+  inputVertices = result;
   
-  return result;
+  // return result;
   
   // return inputVertices;
 }
