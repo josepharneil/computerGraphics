@@ -299,84 +299,6 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
   //Find number of vertices of polygon (3 for triangle)
   int V = vertices.size();
 
-  //initialise the pixel structs
-  vector<Pixel> vertexPixels( V );
-
-
-  //make a copy of vertices because we don't want to alter the construction of the scene.
-  vector<Vertex> verticesCopy(3);
-  verticesCopy = vertices;
-
-
-  //CLIPPING START///
-  #pragma region Clipping
-
-  //A vertex simply contains a vec4 position. The passed in vertices are in camera space. 
-  //We need to enforce the w dimension of each to be 1 (since strictly the homogenous component should be introduced here). 
-  //Note that we need to fill three "pixel" structs with the correct information
-  
-  //Initalise Ws and set the pos3d/zinv (these cant be set while in clip space). If clipping occurs we will need to infer the correct pos3d/zinv for the clipped points by interpolating between the values set here.
-  for( int i=0; i<V; ++i )
-  {
-    verticesCopy[i].position.w = 1.0f;
-    vertexPixels[i].pos3d = verticesCopy[i].position;
-    vertexPixels[i].zinv  = 1.0f/verticesCopy[i].position.z;
-  }
-
-  //Now we transform into clip space by setting the w component of each vertex to z/focalLength
-  
-  //Calc W component.
-  for( int i=0; i<V; ++i )
-  {
-    verticesCopy[i].position.w = verticesCopy[i].position.z / focalLength;
-  }
-
-  //Now the vertices in verticesCopy are in clip space and we need to carry out clipping
-  
-      ////ACTUAL CLIPPING START////
-
-
-
-
-      /////ACTUAL CLIPPING END/// /
-
-  //Now we need to perform the perspective divide (division by W). 
-  //Then we are in NDC (normalised device coords) space, where all three dimensions are in range [-1,1]. 
-  //Do perspective divide
-  for(int i=0; i<V; ++i)
-  {
-    verticesCopy[i].position.x = verticesCopy[i].position.x / verticesCopy[i].position.w; 
-    verticesCopy[i].position.y = verticesCopy[i].position.y / verticesCopy[i].position.w;
-    verticesCopy[i].position.z = verticesCopy[i].position.z / verticesCopy[i].position.w;
-    verticesCopy[i].position.w = 1.0f; 
-  }
-  
-
-  //set the x and y coordinates to pixel values
-  for( int i=0; i<V; ++i )
-  {
-    vertexPixels[i].x     = verticesCopy[i].position.x + SCREEN_WIDTH/2;
-    vertexPixels[i].y     = verticesCopy[i].position.y + SCREEN_HEIGHT/2;
-  }
-
-/*  
-  //Now we need to do a viewport transform to get the point into pixel space (also known as raster space). 
-  for( int i=0; i<V; ++i )
-  {
-    vertexPixels[i].x = (verticesCopy[i].position.x + 1) * 0.5f * (SCREEN_WIDTH  - 1);
-    vertexPixels[i].y = (verticesCopy[i].position.y + 1) * 0.5f * (SCREEN_HEIGHT - 1);
-    vertexPixels[i].pos3d = vec4(1.0f,1.0f,1.0f,1.0f);
-    vertexPixels[i].zinv = 1;
-  }
-  */
-  
-
-  
-  #pragma endregion Clipping
-  ///CLIPPING END///
-
-
-  /* OLD PERSPECTIVE
   //Initialise 3 long vector of projected vertices (pixel locations)
   vector<Pixel> vertexPixels( V );
 
@@ -385,11 +307,8 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
   {
     //Compute projection
     PerspectiveProject( vertices[i], vertexPixels[i], cameraPos, focalLength);
-  }*/
-
-  //CLIPPING BE DONE BY HERE
+  }
   
-
   //Initialise vectors to store left-most and right-most positions of each row of the projected triangle
   vector<Pixel> leftPixels;
   vector<Pixel> rightPixels;
