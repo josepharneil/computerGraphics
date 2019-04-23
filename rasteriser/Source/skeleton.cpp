@@ -73,7 +73,9 @@ vec4 NormaliseNoHomogenous(vec4 vector4);
 void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
 
 vector<Triangle> Clip(Triangle& triangle);
-vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color);
+vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color);
+float DotNoHomogenous(const vec4 A, const vec4 B);
+vector<vec4> ClipToPlane(vector<vec4> inputVertices, vec4 planePoint, vec4 planeNormal);
 
 
 #pragma endregion FunctionDefinitions
@@ -681,28 +683,67 @@ void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix)
 //clip triangle, and return a vector of the resulting triangles
 vector<Triangle> Clip(Triangle& triangle)
 {
-  vector<Triangle> result;
-  result.push_back(triangle);
+
+  //until triangulation, we work with vec4s instead of Vertex structs, for ease
+
+  //vertices is the working list of vertices. We first add the vertices from the input triangle. Then we clip to each plane of the view frustum in turn. Then we triangulate
+  vector<vec4> vertices;
+  
+  //add vertices from input triangle
+  vertices.push_back(triangle.v0);
+  vertices.push_back(triangle.v1);
+  vertices.push_back(triangle.v2);
+
+  //clip to near plane
+  vertices = ClipToPlane(vertices,vec4(0,0,0,0),vec4(0,0,0,0));
+  //clip to far plane
+  //... (do for all 6 planes of view frustum)
+  
+  //triangulate the polygon (might already be a triangle)
+  vector<Triangle> result = Triangulate(vertices,triangle.color);
   return result;
 }
 
 //use fan triangulation to triangluate the given polygon (specified by ordered list of vertices), return a vector of triangles.
 //color is only passed so that we can create triangles
-vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color)
+vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
 {
   vector<Triangle> result;
+  
+  //if the passed in polygon is a triagle, just place it in the list and return immediately.
+  if(vertices.size() == 3)
+  {
+    result.push_back(Triangle(vertices[0],vertices[1],vertices[2],color));
+    return result;
+  }
+  
   //number of triangles resulting from triangulation
   int numTriangles = ceil(((float)vertices.size()) /2.0f);
 
-  cout << vertices.size() << "num tri: " << numTriangles << "\n";
+  // cout << vertices.size() << "num tri: " << numTriangles << "\n";
   for(int i = 0; i<numTriangles; i++ )
   {
-    result.push_back(Triangle(vertices[0].position,vertices[i+1].position,vertices[i+2].position,color));
-    cout << i << "\n";
-    cout << result[i].v0 << "\n";
-    cout << result[i].v1 << "\n";
-    cout << result[i].v2 << "\n";
+    result.push_back(Triangle(vertices[0],vertices[i+1],vertices[i+2],color));
+    // cout << i << "\n";
+    // cout << result[i].v0 << "\n";
+    // cout << result[i].v1 << "\n";
+    // cout << result[i].v2 << "\n";
   }
   
   return result;
 }
+
+float DotNoHomogenous(const vec4 A, const vec4 B)
+{
+  vec3 tempA = vec3(A.x,A.y,A.z);
+  vec3 tempB = vec3(B.x,B.y,B.z);
+  return glm::dot(tempA, tempB);
+}
+
+//clips a convex polygon to the plane specified by the point planePoint and the normal planeNormal, returns a vector<vec4> specifying the resultant polygon
+//note that the order of vertices is important to specifying the 
+vector<vec4> ClipToPlane(vector<vec4> inputVertices, vec4 planePoint, vec4 planeNormal)
+{
+  return inputVertices;
+}
+
