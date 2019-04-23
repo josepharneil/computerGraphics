@@ -20,9 +20,9 @@ using glm::vec2;
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define LIGHT_POWER 3.5f
-#define NEAR_CLIP 0.001
-#define FAR_CLIP 1000
-#define FIELD_OF_VIEW 90 
+#define NEAR_CLIP 0.5f
+#define FAR_CLIP 5.0f
+#define ANGLE_OF_VIEW 3.14159265/2  //field of view is 90 deg as long as focal length is half screen dimension 
 
 //============= Global Variables =============//
 bool quit;
@@ -695,8 +695,23 @@ vector<Triangle> Clip(Triangle& triangle)
   vertices.push_back(triangle.v2);
 
   //clip to near plane
-  vertices = ClipToPlane(vertices,vec4(0,0,0,0),vec4(0,0,0,0));
+  
+
   //clip to far plane
+  vertices = ClipToPlane(vertices,vec4(0,0,FAR_CLIP,1),vec4(0,0,-1,1));
+
+  vertices = ClipToPlane(vertices,vec4(0,0,NEAR_CLIP,1),vec4(0,0,1,1));
+
+  //clip to top
+  // vertices = ClipToPlane(vertices,vec4(0,0,FAR_CLIP,1),vec4(0,0,-1,1));
+
+  //clip to left
+  // vertices = ClipToPlane(vertices,vec4(0,0,FAR_CLIP,1),vec4(0,0,-1,1));
+
+  //clip to bottom
+
+  //clip to right
+
   //... (do for all 6 planes of view frustum)
   
   //triangulate the polygon (might already be a triangle)
@@ -744,6 +759,39 @@ float DotNoHomogenous(const vec4 A, const vec4 B)
 //note that the order of vertices is important to specifying the 
 vector<vec4> ClipToPlane(vector<vec4> inputVertices, vec4 planePoint, vec4 planeNormal)
 {
-  return inputVertices;
+  vector<vec4> result;
+
+  int n = inputVertices.size();
+
+  float pdot = 0;
+  float idot = DotNoHomogenous(planeNormal,(inputVertices[0]-planePoint));
+  for(int i = 0; i<n;i++)
+  {
+    float dot = DotNoHomogenous(planeNormal, (inputVertices[i] - planePoint));
+    if(dot * pdot < 0)
+    {
+      float t = pdot/(pdot - dot);
+      vec4 I = inputVertices[i-1] + t * (inputVertices[i] - inputVertices[i-1]);
+      result.push_back(I);
+    }
+
+    if(dot > 0)
+    {
+      result.push_back(inputVertices[i]);
+    }
+
+    pdot = dot;
+  }
+
+  if (pdot * idot < 0)
+  {
+    float t = pdot/(pdot - idot);
+    vec4 I = inputVertices[n-1] + t*(inputVertices[0] - inputVertices[n-1]);
+    result.push_back(I);
+  }
+  
+  return result;
+  
+  // return inputVertices;
 }
 
