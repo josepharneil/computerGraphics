@@ -717,10 +717,10 @@ vector<Triangle> Clip(Triangle& triangle)
   float sinHalfAlpha = sinf((ANGLE_OF_VIEW)/2);
 
   //clip to near plane
-  ClipToPlane(vertices,vec4(0,0,0.1f,1),vec4(0,0,1,1));
+  ClipToPlane(vertices,vec4(0,0,NEAR_CLIP,1),vec4(0,0,1,1));
 
   //clip to far plane
-  ClipToPlane(vertices,vec4(0,0,10.0f ,1),vec4(0,0,-1,1));
+  ClipToPlane(vertices,vec4(0,0,FAR_CLIP,1),vec4(0,0,-1,1));
 
   //clip to top
   ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, cosHalfAlpha, sinHalfAlpha, 1.0f ) );
