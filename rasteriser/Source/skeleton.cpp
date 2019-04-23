@@ -79,11 +79,50 @@ vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color);
 #pragma endregion FunctionDefinitions
 //============= END Function Definitions =============//
 
+//============= Overrides =============//
+#pragma region Overrides
+//Print vec4s
+std::ostream &operator<<( std::ostream &os, vec4 const &v )
+{
+  return os << "(" << v.x << ", " << v.y << ", " << v.z << ", " << v.w
+            << ")";
+}
+
+std::ostream &operator<<( std::ostream &os, vec3 const &v )
+{
+  return os << "(" << v.x << ", " << v.y << ", " << v.z << ")";
+}
+
+std::ostream &operator<<( std::ostream &os, mat4 const &m )
+{
+  glm::mat4 mt = transpose( m );
+  return os << mt[ 0 ] << endl
+            << mt[ 1 ] << endl
+            << mt[ 2 ] << endl
+            << mt[ 3 ];
+}
+#pragma endregion
+//============= END Overrides =============//
+
 //============= Main =============//
 int main( int argc, char* argv[] )
 {
   //Initially, do not quit
   quit = false;
+
+  // Vertex A = {.position = vec4(0,0,0,1)};
+  // Vertex B = {.position = vec4(1,1,1,1)};
+  // Vertex C = {.position = vec4(2,2,2,1)};
+  // Vertex D = {.position = vec4(3,3,3,1)};
+  // Vertex E = {.position = vec4(4,4,4,1)};
+  
+  // vector<Vertex> myVertices;
+  // myVertices.push_back(A);
+  // myVertices.push_back(B);
+  // myVertices.push_back(C);
+  // myVertices.push_back(D);
+  // myVertices.push_back(E);
+  // Triangulate(myVertices, vec3(1,1,1));
 
   isWireframe = true;
   
@@ -122,12 +161,11 @@ int main( int argc, char* argv[] )
       
       for (int t = 0; t < triangles.size(); t++)
       {
-        triangles[t].v0 = /*projmatrix*/ invCameraMatrix * originalTriangles[t].v0;
+        triangles[t].v0 = invCameraMatrix * originalTriangles[t].v0;
         triangles[t].v1 = invCameraMatrix * originalTriangles[t].v1;
         triangles[t].v2 = invCameraMatrix * originalTriangles[t].v2;
         triangles[t].ComputeNormal();
       }
-      // clip
 
       // w divide
       lightPos = invCameraMatrix * originalLightPos;
@@ -657,9 +695,13 @@ vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color)
   int numTriangles = ceil(((float)vertices.size()) /2.0f);
 
   cout << vertices.size() << "num tri: " << numTriangles << "\n";
-  for(int i = 0; i<=numTriangles; i++ )
+  for(int i = 0; i<numTriangles; i++ )
   {
     result.push_back(Triangle(vertices[0].position,vertices[i+1].position,vertices[i+2].position,color));
+    cout << i << "\n";
+    cout << result[i].v0 << "\n";
+    cout << result[i].v1 << "\n";
+    cout << result[i].v2 << "\n";
   }
   
   return result;
