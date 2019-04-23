@@ -711,31 +711,33 @@ vector<Triangle> Clip(Triangle& triangle)
 
   // cout << ANGLE_OF_VIEW;
 
-  float cosHalfAlpha = cosf(ANGLE_OF_VIEW/2);
-  float sinHalfAlpha = sinf(ANGLE_OF_VIEW/2);
-
-  //clip to top
-  // ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, cosHalfAlpha, sinHalfAlpha, 1.0f ) );
-  cout << vertices.size() << "\n";
-  ClipToPlane(vertices,vec4(0,-0.5f,0,1), vec4(0.0f, 1, 0, 1.0f ) );
-  cout << vertices.size() << "\n";
-  ClipToPlane(vertices,vec4(0,0.5f,0,1), vec4(0.0f, -1, 0, 1.0f ) );
-  cout << vertices.size() << "\n";
-
-  //clip to left
-  // ClipToPlane(vertices,vec4(0,0,0,1), vec4( cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
-  
-  //clip to bottom
-  // ClipToPlane(vertices,vec4(0,0,0,1), vec4( 0.0f,-cosHalfAlpha,sinHalfAlpha, 1.0f) );
-
-  //clip to right
-  // ClipToPlane(vertices,vec4(0,0,0,1), vec4(-cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
+  float cosHalfAlpha = cosf((ANGLE_OF_VIEW*0.8f)/2);
+  float sinHalfAlpha = sinf((ANGLE_OF_VIEW*0.8f)/2);
 
   //clip to near plane
-  ClipToPlane(vertices,vec4(0,0,NEAR_CLIP,1),vec4(0,0,1,1));
+  ClipToPlane(vertices,vec4(0,0,0.1f,1),vec4(0,0,1,1));
 
   //clip to far plane
-  // ClipToPlane(vertices,vec4(0,0,FAR_CLIP ,1),vec4(0,0,-1,1));
+  ClipToPlane(vertices,vec4(0,0,10.0f ,1),vec4(0,0,-1,1));
+
+  //clip to top
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, cosHalfAlpha, sinHalfAlpha, 1.0f ) );
+  // cout << vertices.size() << "\n";
+  // ClipToPlane(vertices,vec4(0,-1.1f,0,1), vec4(0.0f, 1, 0, 1.0f ) );
+  // cout << vertices.size() << "\n";
+  // ClipToPlane(vertices,vec4(0,1.1f,0,1), vec4(0.0f, -1, 0, 1.0f ) );
+  // cout << vertices.size() << "\n";
+
+  //clip to left
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4( cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
+  
+  //clip to bottom
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4( 0.0f,-cosHalfAlpha,sinHalfAlpha, 1.0f) );
+
+  //clip to right
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4(-cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
+
+
 
 
 
@@ -752,6 +754,7 @@ vector<Triangle> Clip(Triangle& triangle)
 vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
 {
   vector<Triangle> result;
+  
   if(vertices.size() < 3)
   {
     return result;
@@ -797,8 +800,6 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
     return;
   }
 
-
-
   vector<vec4> result;
 
   int n = inputVertices.size();
@@ -808,6 +809,7 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
   for(int i = 0; i<n;i++)
   {
     float dot = DotNoHomogenous(planeNormal, (inputVertices[i] - planePoint));
+
     if(dot * pdot < 0)
     {
       float t = pdot/(pdot - dot);
@@ -815,7 +817,7 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
       result.push_back(I);
     }
 
-    if(dot > 0)
+    if(dot >= 0)
     {
       result.push_back(inputVertices[i]);
     }
