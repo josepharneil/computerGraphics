@@ -73,7 +73,7 @@ vec4 NormaliseNoHomogenous(vec4 vector4);
 void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
 
 vector<Triangle> Clip(Triangle& triangle);
-vector<Triangle> Triangulate(vector<Vertex> vertices, const vec4 normal, const vec3 color);
+vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color);
 
 
 #pragma endregion FunctionDefinitions
@@ -649,8 +649,18 @@ vector<Triangle> Clip(Triangle& triangle)
 }
 
 //use fan triangulation to triangluate the given polygon (specified by ordered list of vertices), return a vector of triangles.
-//color and normal are only passed so that we can create triangles
-vector<Triangle> Triangulate(vector<Vertex> vertices, const vec4 normal, const vec3 color)
+//color is only passed so that we can create triangles
+vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color)
 {
+  vector<Triangle> result;
+  //number of triangles resulting from triangulation
+  int numTriangles = ceil(((float)vertices.size()) /2.0f);
+
+  cout << vertices.size() << "num tri: " << numTriangles << "\n";
+  for(int i = 0; i<=numTriangles; i++ )
+  {
+    result.push_back(Triangle(vertices[0].position,vertices[i+1].position,vertices[i+2].position,color));
+  }
   
+  return result;
 }
