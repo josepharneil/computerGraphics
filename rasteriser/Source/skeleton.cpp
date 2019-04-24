@@ -20,7 +20,7 @@ using glm::vec2;
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define LIGHT_POWER 3.5f
-#define NEAR_CLIP 0.5f
+#define NEAR_CLIP 0.1f
 #define FAR_CLIP 5.0f
 #define ANGLE_OF_VIEW 3.14159265/2  //field of view is 90 deg as long as focal length is half screen dimension 
 
@@ -701,18 +701,6 @@ vector<Triangle> Clip(Triangle& triangle)
   vertices.push_back(triangle.v1);
   vertices.push_back(triangle.v2);
 
-  
-
-  //... (do for all 6 planes of view frustum)  
-  //result = ClipToPlane(inputVertices, planePoint, planeNormal)
-
-  //clip to far plane
-
-
-  // cout << ANGLE_OF_VIEW;
-
-  // float cosHalfAlpha = cosf((ANGLE_OF_VIEW*0.8f)/2);
-  // float sinHalfAlpha = sinf((ANGLE_OF_VIEW*0.8f)/2);
   float cosHalfAlpha = cosf((ANGLE_OF_VIEW)/2);
   float sinHalfAlpha = sinf((ANGLE_OF_VIEW)/2);
 
@@ -724,25 +712,15 @@ vector<Triangle> Clip(Triangle& triangle)
 
   //clip to top
   ClipToPlane(vertices,vec4(0,0,0,1), vec4(0.0f, cosHalfAlpha, sinHalfAlpha, 1.0f ) );
-  // cout << vertices.size() << "\n";
-  // ClipToPlane(vertices,vec4(0,-1.1f,0,1), vec4(0.0f, 1, 0, 1.0f ) );
-  // cout << vertices.size() << "\n";
-  // ClipToPlane(vertices,vec4(0,1.1f,0,1), vec4(0.0f, -1, 0, 1.0f ) );
-  // cout << vertices.size() << "\n";
 
-  //clip to left
-  ClipToPlane(vertices,vec4(0,0,0,1), vec4( cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
+  //clip to right
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4( -cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
   
   //clip to bottom
   ClipToPlane(vertices,vec4(0,0,0,1), vec4( 0.0f,-cosHalfAlpha,sinHalfAlpha, 1.0f) );
 
-  //clip to right
-  ClipToPlane(vertices,vec4(0,0,0,1), vec4(-cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
-
-
-
-
-
+  //clip to left
+  ClipToPlane(vertices,vec4(0,0,0,1), vec4(cosHalfAlpha, 0.0f,sinHalfAlpha, 1.0f) );
 
   
   //triangulate the polygon (might already be a triangle)
@@ -757,6 +735,7 @@ vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
 {
   vector<Triangle> result;
   
+  //if there are less than three points then return empty list.
   if(vertices.size() < 3)
   {
     return result;
@@ -768,19 +747,15 @@ vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
     result.push_back(Triangle(vertices[0],vertices[1],vertices[2],color));
     return result;
   }
+
+  //otherwise, triangulate the polygon:
   
-  //number of triangles resulting from triangulation
+  //number of triangles to result from triangulation
   int numTriangles = (int)(ceil(((float)vertices.size()) /2.0f));
 
-  // cout << vertices.size() << "num tri: " << numTriangles << "\n";
   for(int i = 0; i<numTriangles; i++ )
   {
     result.push_back(Triangle(vertices[0],vertices[i+1],vertices[i+2],color));
-
-    // cout << i << "\n";
-    // cout << result[i].v0 << "\n";
-    // cout << result[i].v1 << "\n";
-    // cout << result[i].v2 << "\n";
   }
   
   return result;
@@ -794,7 +769,7 @@ float DotNoHomogenous(const vec4 A, const vec4 B)
 }
 
 //clips a convex polygon to the plane specified by the point planePoint and the normal planeNormal, returns a vector<vec4> specifying the resultant polygon
-//note that the order of vertices is important to specifying the 
+//note that the order of vertices is important to specifying the polygon
 void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
 {
   if(inputVertices.size() < 3)
@@ -812,13 +787,17 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
   {
     float dot = DotNoHomogenous(planeNormal, (inputVertices[i] - planePoint));
 
+    //if current vertex is in, and previous was out, then find intersection and add
+    // OR if current vertex is out, and previous vertex was in, then find intersection and add
+    // this cannot be called for the first vertex
     if(dot * pdot < 0)
     {
       float t = pdot/(pdot - dot);
       vec4 I = inputVertices[i-1] + t * (inputVertices[i] - inputVertices[i-1]);
       result.push_back(I);
     }
-
+    
+    //if current vertex is in (or on) the plane, then add to list
     if(dot >= 0)
     {
       result.push_back(inputVertices[i]);
@@ -827,6 +806,7 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
     pdot = dot;
   }
 
+  //check final edge (i.e the edge from )
   if (pdot * idot < 0)
   {
     float t = pdot/(pdot - idot);
@@ -836,11 +816,5 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
 
   inputVertices = result;
 
-  // if(inputVertices.size() > 3)
-    // cout << inputVertices.size() << "\n";
-  
-  // return result;
-  
-  // return inputVertices;
 }
 
