@@ -670,10 +670,12 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
   //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
   {
-    if(textureName != "")
+    
+    if(textureName == "checkerBoard")
     {
       currentReflectance = CheckerBoard(p.textureCoordinates.x,p.textureCoordinates.y);
     }
+    
     //Vectors (all normalised)
 
     //vector from p to light
