@@ -25,6 +25,7 @@ using glm::vec2;
 #define ANGLE_OF_VIEW 3.14159265/2  //field of view is 90 deg as long as focal length is half screen dimension 
 #define AMBIENT_POWER 0.3f
 
+
 //============= Global Variables =============//
 bool quit;
 bool isWireframe;
@@ -80,6 +81,8 @@ float DotNoHomogenous(const vec4 A, const vec4 B);
 float LengthNoHomogenous(const vec4 v);
 vec4 ReflectNoHomogenous(vec4 i, vec4 n);
 void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal);
+
+vec3 CheckerBoard(float x, float y);
 
 
 #pragma endregion FunctionDefinitions
@@ -176,7 +179,17 @@ int main( int argc, char* argv[] )
       // w divide
       lightPos = invCameraMatrix * originalLightPos;
 
-      Draw(screen, triangles, cameraPos, focalLength, lightPos, lightPower, indirectLightPowerPerArea);
+      // for(int i = 0; i < SCREEN_WIDTH; i++ )
+      // {
+      //   for(int j = 0; j < SCREEN_HEIGHT; j++)
+      //   {
+      //     // float x = SCREEN_WIDTH 
+      //     // float i = SCREEN_WIDTH/
+      //     PutPixelSDL(screen, i, j, CheckerBoard(0.001f*i,0.001f*j));
+      //   }
+      // }
+
+      // Draw(screen, triangles, cameraPos, focalLength, lightPos, lightPower, indirectLightPowerPerArea);
       SDL_Renderframe(screen);
     }
 
@@ -882,5 +895,37 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
   }
 
   inputVertices = result;
+
+}
+//presume (x,y) is a UV coord (i.e. in range [0,1])
+vec3 CheckerBoard(float x, float y)
+{ 
+  //out of range
+  if(x>1||y>1)
+  {
+    return vec3(1,0,0);
+  }
+
+  //top left
+  if(x<=0.5f && y<=0.5f)
+  {
+    return vec3(0,0,0);
+  }
+  //top right
+  if(x>0.5f && y<=0.5f)
+  {
+    return vec3(1,1,1);
+  }
+  //bottom left
+  if(x<=0.5f && y>0.5f)
+  {
+    return vec3(1,1,1);
+  }
+  //bottom right
+  if(x>0.5f && y>0.5f)
+  {
+    return vec3(0,0,0);
+  }
+  // */
 
 }
