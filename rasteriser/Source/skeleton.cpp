@@ -77,11 +77,11 @@ vec4 NormaliseNoHomogenous(vec4 vector4);
 void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
 
 vector<Triangle> Clip(Triangle& triangle);
-vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color);
+vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color);
 float DotNoHomogenous(const vec4 A, const vec4 B);
 float LengthNoHomogenous(const vec4 v);
 vec4 ReflectNoHomogenous(vec4 i, vec4 n);
-void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal);
+void ClipToPlane(vector<Vertex>& inputVertices, vec4 planePoint, vec4 planeNormal);
 
 vec3 CheckerBoard(float x, float y);
 
@@ -225,7 +225,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
   vector<Triangle> clippedTriangles;
 	// clippedTriangles.clear();
 	// clippedTriangles.reserve( 40 );
-  /*
+
   //Apply clipping to each triangle
   for( uint32_t i=0; i<triangles.size(); ++i )
   {
@@ -240,8 +240,6 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
     }
   }
   //============= END Clipping =============//
-  */
-  clippedTriangles = triangles;
 
   //For each clipped triangle
   for( uint32_t i=0; i<clippedTriangles.size(); ++i )
@@ -768,16 +766,24 @@ void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix)
 //clip triangle, and return a vector of the resulting triangles
 vector<Triangle> Clip(Triangle& triangle)
 {
+  vector<Vertex> vertices(3);
+  vertices[0].position = triangle.v0;
+  vertices[1].position = triangle.v1;
+  vertices[2].position = triangle.v2;
+  
+  vertices[0].textureCoordinates = vec2(triangle.t0.x,triangle.t0.y);
+  vertices[1].textureCoordinates = vec2(triangle.t1.x,triangle.t1.y);
+  vertices[2].textureCoordinates = vec2(triangle.t2.x,triangle.t2.y);
 
   //until triangulation, we work with vec4s instead of Vertex structs, for ease
 
   //vertices is the working list of vertices. We first add the vertices from the input triangle. Then we clip to each plane of the view frustum in turn. Then we triangulate
-  vector<vec4> vertices;
+  // vector<vec4> vertices;
   
-  //add vertices from input triangle
-  vertices.push_back(triangle.v0);
-  vertices.push_back(triangle.v1);
-  vertices.push_back(triangle.v2);
+  // //add vertices from input triangle
+  // vertices.push_back(triangle.v0);
+  // vertices.push_back(triangle.v1);
+  // vertices.push_back(triangle.v2);
 
   float cosHalfAlpha = cosf((ANGLE_OF_VIEW)/2);
   float sinHalfAlpha = sinf((ANGLE_OF_VIEW)/2);
@@ -809,7 +815,7 @@ vector<Triangle> Clip(Triangle& triangle)
 
 //use fan triangulation to triangluate the given polygon (specified by ordered list of vertices), return a vector of triangles.
 //color is only passed so that we can create triangles
-vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
+vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color)
 {
   vector<Triangle> result;
   
@@ -822,7 +828,7 @@ vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
   //if the passed in polygon is a triagle, just place it in the list and return immediately.
   if(vertices.size() == 3)
   {
-    result.push_back(Triangle(vertices[0],vertices[1],vertices[2],color));
+    result.push_back(Triangle(vertices[0].position,vertices[1].position,vertices[2].position,color,vertices[0].textureCoordinates,vertices[1].textureCoordinates,vertices[2].textureCoordinates));
     return result;
   }
 
@@ -833,7 +839,7 @@ vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color)
 
   for(int i = 0; i<numTriangles; i++ )
   {
-    result.push_back(Triangle(vertices[0],vertices[i+1],vertices[i+2],color));
+    result.push_back(Triangle(vertices[0].position,vertices[i+1].position,vertices[i+2].position,color,vertices[0].textureCoordinates,vertices[i+1].textureCoordinates,vertices[i+2].textureCoordinates));
   }
   
   return result;
@@ -863,21 +869,21 @@ vec4 ReflectNoHomogenous(vec4 i, vec4 n)
 
 //clips a convex polygon to the plane specified by the point planePoint and the normal planeNormal, returns a vector<vec4> specifying the resultant polygon
 //note that the order of vertices is important to specifying the polygon
-void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
+void ClipToPlane(vector<Vertex>& inputVertices, vec4 planePoint, vec4 planeNormal)
 {
   if(inputVertices.size() < 3)
   {
     return;
   }
 
-  vector<vec4> result;
+  vector<Vertex> result;
 
   int n = inputVertices.size();
 
   float pdot = 0;
   for(int i = 0; i<n;i++)
   {
-    float dot = DotNoHomogenous(planeNormal, (inputVertices[i] - planePoint));
+    float dot = DotNoHomogenous(planeNormal, (inputVertices[i].position - planePoint));
 
     //if current vertex is in, and previous was out, then find intersection and add
     // OR if current vertex is out, and previous vertex was in, then find intersection and add
@@ -885,26 +891,37 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
     if(dot * pdot < 0)
     {
       float t = pdot/(pdot - dot);
-      vec4 I = inputVertices[i-1] + t * (inputVertices[i] - inputVertices[i-1]);//find intersection I
-      result.push_back(I);
+      vec4 I = inputVertices[i-1].position + t * (inputVertices[i].position - inputVertices[i-1].position);//find intersection I
+      vec2 uv = inputVertices[i-1].textureCoordinates + t * (inputVertices[i].textureCoordinates - inputVertices[i-1].textureCoordinates);//find intersection I
+      Vertex newVertex;
+      newVertex.position = I;
+      newVertex.textureCoordinates = uv;
+      result.push_back(newVertex);
     }
     
     //if current vertex is in (or on) the plane, then add to list
     if(dot >= 0)
     {
-      result.push_back(inputVertices[i]);
+      Vertex newVertex;
+      newVertex.position = inputVertices[i].position;
+      newVertex.textureCoordinates = inputVertices[i].textureCoordinates;
+      result.push_back(newVertex);
     }
 
     pdot = dot;
   }
 
-  float idot = DotNoHomogenous(planeNormal,(inputVertices[0]-planePoint));
+  float idot = DotNoHomogenous(planeNormal,(inputVertices[0].position-planePoint));
   //check final edge (i.e the edge from )
   if (pdot * idot < 0)
   {
     float t = pdot/(pdot - idot);
-    vec4 I = inputVertices[n-1] + t*(inputVertices[0] - inputVertices[n-1]);
-    result.push_back(I);
+    vec4 I = inputVertices[n-1].position + t*(inputVertices[0].position - inputVertices[n-1].position);
+    vec2 uv = inputVertices[n-1].textureCoordinates + t*(inputVertices[0].textureCoordinates - inputVertices[n-1].textureCoordinates);
+    Vertex newVertex;
+    newVertex.position = I;
+    newVertex.textureCoordinates = uv;
+    result.push_back(newVertex);
   }
 
   inputVertices = result;
