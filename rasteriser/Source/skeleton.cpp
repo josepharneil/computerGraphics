@@ -47,6 +47,7 @@ struct Pixel
   float zinv;
   // vec3 illumination;
   vec4 pos3d;
+  vec2 textureCoordinates;
 };
 
 struct Vertex
@@ -250,6 +251,10 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
     vertices[0].position = clippedTriangles[i].v0;
     vertices[1].position = clippedTriangles[i].v1;
     vertices[2].position = clippedTriangles[i].v2;
+    
+    vertices[0].textureCoordinates = clippedTriangles[i].t0;
+    vertices[1].textureCoordinates = clippedTriangles[i].t1;
+    vertices[2].textureCoordinates = clippedTriangles[i].t2;
 
     vec4 currentNormal = clippedTriangles[i].normal;
     vec3 currentReflectance = clippedTriangles[i].color;
@@ -435,6 +440,7 @@ void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float&
   p.y = y;
   p.zinv = zinv;
   p.pos3d = vertex.position;
+  p.textureCoordinates = vertex.textureCoordinates;
 }
 
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels, screen* screen )
@@ -505,12 +511,14 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
       { 
         leftPixels[rowIndex].x = pixel.x;
         leftPixels[rowIndex].zinv = pixel.zinv;
+        leftPixels[rowIndex].textureCoordinates = pixel.textureCoordinates;
         leftPixels[rowIndex].pos3d = pixel.pos3d;
       }
       if(pixel.x > rightPixels[rowIndex].x) 
       { 
         rightPixels[rowIndex].x = pixel.x; 
         rightPixels[rowIndex].zinv = pixel.zinv;
+        rightPixels[rowIndex].textureCoordinates = pixel.textureCoordinates;
         rightPixels[rowIndex].pos3d = pixel.pos3d;
       }
     }
@@ -608,12 +616,14 @@ void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
   float zStep = (b.zinv-a.zinv) / float(max(N-1,1));
   //The quantity we interpolate is pos3dStep over Z - this accounts for projection
   vec4 pos3dStep = ( (b.pos3d*b.zinv) - (a.pos3d*a.zinv) ) / float(max(N-1,1));
+  vec2 textureCoordinatesStep = ( (b.textureCoordinates*b.zinv) - (a.textureCoordinates*a.zinv) ) / float(max(N-1,1));
 
   //Initialise
   float xCurrent = float(a.x);
   float yCurrent = float(a.y);
   float zCurrent = a.zinv;
   vec4 pos3dCurrent( a.pos3d * a.zinv );
+  vec2 textureCoordinatesCurrent( a.textureCoordinates * a.zinv );
 
   //Interpolate
   for( int i=0; i<N; ++i )
@@ -622,11 +632,13 @@ void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result)
     result[i].y = round(yCurrent);
     result[i].zinv = zCurrent;
     result[i].pos3d = pos3dCurrent / zCurrent;
+    result[i].textureCoordinates = textureCoordinatesCurrent / zCurrent;
     
     xCurrent += xStep;
     yCurrent += yStep;
     zCurrent += zStep;
     pos3dCurrent += pos3dStep;
+    textureCoordinatesCurrent += textureCoordinatesStep;
   }
 }
 
@@ -659,7 +671,8 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
   //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
   {
-    {
+    // {
+      currentReflectance = CheckerBoard(p.textureCoordinates.x,p.textureCoordinates.y);
       //Vectors (all normalised)
 
       //vector from p to light
@@ -717,7 +730,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
 
       depthBuffer[p.y][p.x] = p.zinv;
 
-    }
+    // }
   }
 }
 
@@ -901,7 +914,7 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
 vec3 CheckerBoard(float x, float y)
 { 
   //out of range
-  if(x>1||y>1)
+  if(x > 1|| y > 1)
   {
     return vec3(1,0,0);
   }
@@ -909,23 +922,25 @@ vec3 CheckerBoard(float x, float y)
   //top left
   if(x<=0.5f && y<=0.5f)
   {
-    return vec3(0,0,0);
+    return vec3(0.2f,0.2f,0.2f);
   }
   //top right
   if(x>0.5f && y<=0.5f)
   {
-    return vec3(1,1,1);
+    return vec3(0.8f,0.8f,0.8f);
   }
   //bottom left
   if(x<=0.5f && y>0.5f)
   {
-    return vec3(1,1,1);
+    return vec3(0.8f,0.8f,0.8f);
   }
   //bottom right
   if(x>0.5f && y>0.5f)
   {
-    return vec3(0,0,0);
+    return vec3(0.2f,0.2f,0.2f);
   }
-  // */
+
+  // throw 
+  return vec3(1,0,1);
 
 }
