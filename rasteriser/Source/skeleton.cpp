@@ -189,7 +189,7 @@ int main( int argc, char* argv[] )
       //   }
       // }
 
-      // Draw(screen, triangles, cameraPos, focalLength, lightPos, lightPower, indirectLightPowerPerArea);
+      Draw(screen, triangles, cameraPos, focalLength, lightPos, lightPower, indirectLightPowerPerArea);
       SDL_Renderframe(screen);
     }
 
