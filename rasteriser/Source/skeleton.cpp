@@ -19,10 +19,11 @@ using glm::vec2;
 #define SCREEN_HEIGHT 800//256
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
-#define LIGHT_POWER 3.5f
+#define LIGHT_POWER 5.0f
 #define NEAR_CLIP 0.1f
 #define FAR_CLIP 5.0f
 #define ANGLE_OF_VIEW 3.14159265/2  //field of view is 90 deg as long as focal length is half screen dimension 
+#define AMBIENT_POWER 0.3f
 
 //============= Global Variables =============//
 bool quit;
@@ -75,6 +76,8 @@ void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
 vector<Triangle> Clip(Triangle& triangle);
 vector<Triangle> Triangulate(vector<vec4> vertices, const vec3 color);
 float DotNoHomogenous(const vec4 A, const vec4 B);
+float LengthNoHomogenous(const vec4 v);
+vec4 ReflectNoHomogenous(vec4 i, vec4 n);
 void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal);
 
 
@@ -150,7 +153,7 @@ int main( int argc, char* argv[] )
   vec4 lightPos(0,-0.5,-0.7,1);
   vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
   vec3 lightPower = LIGHT_POWER*vec3( 1, 1, 1 );
-  vec3 indirectLightPowerPerArea = 0.5f*vec3( 1, 1, 1 );
+  vec3 indirectLightPowerPerArea = AMBIENT_POWER *vec3( 1, 1, 1 );
 
   //Focal length
   float focalLength = SCREEN_WIDTH/2;
@@ -632,27 +635,68 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
   InterpolatePixel( a, b, lineToDraw );
 }
 
+
+//implements the phong model
 void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
                 vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea )
-{  
+{
+  //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
   {
-    vec4 r = lightPos - p.pos3d;
-    vec4 n = currentNormal;
+    {
+      //Vectors (all normalised)
 
-    vec4 rNorm = NormaliseNoHomogenous(r);
-    vec4 nNorm = NormaliseNoHomogenous(n);
-    
-    float A = 4 * M_PI * ( pow(glm::length(r),2) );
-    vec3 B = vec3(lightPower.x/A,lightPower.y/A,lightPower.z/A);
+      //vector from p to light
+      vec4 L = NormaliseNoHomogenous(lightPos - p.pos3d);
+      //normal vector
+      vec4 N = NormaliseNoHomogenous(currentNormal);
+      //perfect reflection direction 
+      vec4 R = NormaliseNoHomogenous(ReflectNoHomogenous(-L,N));
+      //vector from p to camera
+      vec4 V = NormaliseNoHomogenous(-p.pos3d);
 
-    vec3 D = B * max(glm::dot (rNorm,nNorm), 0.0f);
+      
+      //Parameters {note: if you decrease alpha, you should decrease k_s, so things look sensible}
 
-    vec3 illumination = currentReflectance * (D + indirectLightPowerPerArea);
+      //specular constant
+      float k_s = 0.0f;
+      //hacky way to make just blue block shiny
+      if(currentReflectance == vec3(0.15f, 0.15f, 0.75f ))
+      {
+        k_s = 0.15f;
+      }
+      //diffuse constant
+      float k_d = 1.0f;
+      //shininess constant - controls size of specular highlight
+      float alpha = 10.0f;
+      //diffuse falloff constant
+      float falloff = 2.0f; //this was 2.0f originally
 
-    PutPixelSDL(screen, p.x, p.y, illumination);
 
-    depthBuffer[p.y][p.x] = p.zinv;
+      //diffuse
+      float A = 4 * M_PI * ( pow(LengthNoHomogenous(lightPos - p.pos3d),falloff));
+      float B = LIGHT_POWER / A;
+      float diffuse = B * max(DotNoHomogenous(L,N), 0.0f);
+
+      //specular
+      //phong term must be in range [0,1]
+      float phongTerm = pow(DotNoHomogenous(V,R),alpha);
+      if(DotNoHomogenous(V,R) <=0)
+      {
+        phongTerm = 0;
+      }
+      float specular = LIGHT_POWER * phongTerm;
+
+      //shading = diffuse + specular + ambient {note: specular should not be affected by material color}
+      vec3 diffuseShading = k_d * diffuse * currentReflectance;
+      vec3 ambientShading = indirectLightPowerPerArea * currentReflectance;
+      vec3 specularShading = k_s * specular * vec3(1,1,1);
+      vec3 shading = diffuseShading + ambientShading + specularShading;
+      PutPixelSDL(screen, p.x, p.y, shading);
+
+      depthBuffer[p.y][p.x] = p.zinv;
+
+    }
   }
 }
 
@@ -768,6 +812,21 @@ float DotNoHomogenous(const vec4 A, const vec4 B)
   return glm::dot(tempA, tempB);
 }
 
+float LengthNoHomogenous(const vec4 v)
+{
+  vec3 temp = vec3(v.x,v.y,v.z);
+  return glm::length(temp);
+}
+
+vec4 ReflectNoHomogenous(vec4 i, vec4 n)
+{
+  vec3 i3 = vec3(i.x,i.y,i.z);
+  vec3 n3 = vec3(n.x,n.y,n.z);
+  vec3 r3 = glm::reflect(i3,n3);
+  vec4 r4 = vec4(r3.x,r3.y,r3.z,1);
+  return r4;
+}
+
 //clips a convex polygon to the plane specified by the point planePoint and the normal planeNormal, returns a vector<vec4> specifying the resultant polygon
 //note that the order of vertices is important to specifying the polygon
 void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
@@ -817,4 +876,3 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
   inputVertices = result;
 
 }
-
