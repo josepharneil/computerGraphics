@@ -67,12 +67,12 @@ void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result);
 
 //pixel versions
 void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result);
-void DrawPolygonRows( screen* screen, const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea );
+void DrawPolygonRows( screen* screen, const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName );
 void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw);
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels, screen* screen );
-void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance );
+void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance, const string& textureName );
 void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength );
-void PixelShader(const Pixel& p, screen* s, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea );
+void PixelShader(const Pixel& p, screen* s, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName );
 vec4 NormaliseNoHomogenous(vec4 vector4);
 void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
 
@@ -256,10 +256,11 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 
     vec4 currentNormal = clippedTriangles[i].normal;
     vec3 currentReflectance = clippedTriangles[i].color;
+    string textureName =  clippedTriangles[i].textureName;
 
     //Draw polygon for each triangle
     DrawPolygon( screen, vertices, cameraPos, focalLength, depthBuffer, 
-    lightPos, lightPower, indirectLightPowerPerArea, currentNormal, currentReflectance );
+    lightPos, lightPower, indirectLightPowerPerArea, currentNormal, currentReflectance, textureName );
   }
   
 
@@ -382,7 +383,7 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
 //This draws the polygon from some vertices
 void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, 
                  float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, 
-                 vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance )
+                 vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance, const string& textureName )
 {
 
   //Find number of vertices of polygon (3 for triangle)
@@ -406,7 +407,7 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
   ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
 
   //Draws the rows
-  DrawPolygonRows( screen, leftPixels, rightPixels, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
+  DrawPolygonRows( screen, leftPixels, rightPixels, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea, textureName );
 }
 
 
@@ -528,7 +529,7 @@ void DrawPolygonRows( screen* screen,
                       const vector<Pixel>& rightPixels, 
                       float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],
                       vec4& currentNormal, vec3& currentReflectance, 
-                      vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea)
+                      vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName)
 {
   if(isWireframe)
   {  
@@ -557,7 +558,7 @@ void DrawPolygonRows( screen* screen,
       {
         if(pixelsBetween[p].y < SCREEN_HEIGHT && pixelsBetween[p].y >= 0 && pixelsBetween[p].x < SCREEN_WIDTH && pixelsBetween[p].x >=0)
         {
-          PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea );
+          PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea, textureName );
         } 
       }
     }
@@ -664,69 +665,71 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
 
 //implements the phong model
 void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
-                vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea )
+                vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName )
 {
   //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
   {
-    // {
+    if(textureName != "")
+    {
       currentReflectance = CheckerBoard(p.textureCoordinates.x,p.textureCoordinates.y);
-      //Vectors (all normalised)
+    }
+    //Vectors (all normalised)
 
-      //vector from p to light
-      vec4 L = NormaliseNoHomogenous(lightPos - p.pos3d);
-      //normal vector
-      vec4 N = NormaliseNoHomogenous(currentNormal);
-      //perfect reflection direction 
-      vec4 R = NormaliseNoHomogenous(ReflectNoHomogenous(-L,N));
-      //vector from p to camera
-      vec4 V = NormaliseNoHomogenous(-p.pos3d);
+    //vector from p to light
+    vec4 L = NormaliseNoHomogenous(lightPos - p.pos3d);
+    //normal vector
+    vec4 N = NormaliseNoHomogenous(currentNormal);
+    //perfect reflection direction 
+    vec4 R = NormaliseNoHomogenous(ReflectNoHomogenous(-L,N));
+    //vector from p to camera
+    vec4 V = NormaliseNoHomogenous(-p.pos3d);
 
-      
-      //Parameters {note: if you decrease alpha, you should decrease k_s, so things look sensible}
+    
+    //Parameters {note: if you decrease alpha, you should decrease k_s, so things look sensible}
 
-      //specular constant
-      float k_s = 0.0f;
-      //hacky way to make just blue block shiny
-      if(currentReflectance == vec3(0.15f, 0.15f, 0.75f ))
-      {
-        k_s = 0.15f;
-      }
-      //diffuse constant
-      float k_d = 1.0f;
-      //shininess constant - controls size of specular highlight
-      float alpha = 10.0f;
-      //diffuse falloff constant
-      float falloff = 2.0f; //this was 2.0f originally
+    //specular constant
+    float k_s = 0.0f;
+    //hacky way to make just blue block shiny
+    if(currentReflectance == vec3(0.15f, 0.15f, 0.75f ))
+    {
+      k_s = 0.15f;
+    }
+    //diffuse constant
+    float k_d = 1.0f;
+    //shininess constant - controls size of specular highlight
+    float alpha = 10.0f;
+    //diffuse falloff constant
+    float falloff = 2.0f; //this was 2.0f originally
 
 
-      //diffuse
-      float A = 4 * M_PI * ( pow(LengthNoHomogenous(lightPos - p.pos3d),falloff));
-      float B = LIGHT_POWER / A;
-      float diffuse = B * max(DotNoHomogenous(L,N), 0.0f);
+    //diffuse
+    float A = 4 * M_PI * ( pow(LengthNoHomogenous(lightPos - p.pos3d),falloff));
+    float B = LIGHT_POWER / A;
+    float diffuse = B * max(DotNoHomogenous(L,N), 0.0f);
 
-      //specular
-      //phong term must be in range [0,1]
-      float phongTerm = pow(DotNoHomogenous(V,R),alpha);
-      if(DotNoHomogenous(V,R) <= 0)
-      {
-        phongTerm = 0;
-      }
-      //backface cull of phong
-      if(DotNoHomogenous(V,N)<0)
-      {
-        phongTerm = 0;
-      }
-      float specular = LIGHT_POWER * phongTerm;
+    //specular
+    //phong term must be in range [0,1]
+    float phongTerm = pow(DotNoHomogenous(V,R),alpha);
+    if(DotNoHomogenous(V,R) <= 0)
+    {
+      phongTerm = 0;
+    }
+    //backface cull of phong
+    if(DotNoHomogenous(V,N)<0)
+    {
+      phongTerm = 0;
+    }
+    float specular = LIGHT_POWER * phongTerm;
 
-      //shading = diffuse + specular + ambient {note: specular should not be affected by material color}
-      vec3 diffuseShading = k_d * diffuse * currentReflectance;
-      vec3 ambientShading = indirectLightPowerPerArea * currentReflectance;
-      vec3 specularShading = k_s * specular * vec3(1,1,1);
-      vec3 shading = diffuseShading + ambientShading + specularShading;
-      PutPixelSDL(screen, p.x, p.y, shading);
+    //shading = diffuse + specular + ambient {note: specular should not be affected by material color}
+    vec3 diffuseShading = k_d * diffuse * currentReflectance;
+    vec3 ambientShading = indirectLightPowerPerArea * currentReflectance;
+    vec3 specularShading = k_s * specular * vec3(1,1,1);
+    vec3 shading = diffuseShading + ambientShading + specularShading;
+    PutPixelSDL(screen, p.x, p.y, shading);
 
-      depthBuffer[p.y][p.x] = p.zinv;
+    depthBuffer[p.y][p.x] = p.zinv;
 
     // }
   }
@@ -809,6 +812,12 @@ vector<Triangle> Clip(Triangle& triangle)
   
   //triangulate the polygon (might already be a triangle)
   vector<Triangle> result = Triangulate(vertices,triangle.color);
+
+  for(int i = 0; i < result.size(); i++)
+  {
+    result[i].textureName = triangle.textureName;
+  }
+  
 
   return result;
 }
