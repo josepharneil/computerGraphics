@@ -15,9 +15,13 @@ public:
 	glm::vec4 v2;
 	glm::vec4 normal;
 	glm::vec3 color;
+	glm::vec2 t0; //texture coordinates for vertex v0
+	glm::vec2 t1; //texture coordinates for vertex v0
+	glm::vec2 t2; //texture coordinates for vertex v0
+	std::string textureName;
 
-	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color )
-		: v0(v0), v1(v1), v2(v2), color(color)
+	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color, glm::vec2 t0 = glm::vec2(0,0), glm::vec2 t1 = glm::vec2(0,0), glm::vec2 t2 = glm::vec2(0,0), std::string textureName = "")
+		: v0(v0), v1(v1), v2(v2), color(color), t0(t0), t1(t1), t2(t2), textureName(textureName)
 	{
 		ComputeNormal();
 	}
@@ -42,6 +46,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 {
 	using glm::vec3;
 	using glm::vec4;
+	using glm::vec2;
+	using std::string;
 
 	// Defines colors:
 	vec3 red(    0.75f, 0.15f, 0.15f );
@@ -65,18 +71,18 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	vec4 C(L,0,L,1);
 	vec4 D(0,0,L,1);
 
-	vec4 E(L,L,0,1);
-	vec4 F(0,L,0,1);
-	vec4 G(L,L,L,1);
-	vec4 H(0,L,L,1);
+	vec4 E(L,L,0,1);//back-top-left
+	vec4 F(0,L,0,1);//front-top-left
+	vec4 G(L,L,L,1);//back-top-right
+	vec4 H(0,L,L,1);//front-top-right
 
 	// Floor:
 	triangles.push_back( Triangle( C, B, A, white ) );
 	triangles.push_back( Triangle( C, D, B, white ) );
 
 	// Left wall
-	triangles.push_back( Triangle( A, E, C, red ) );
-	triangles.push_back( Triangle( C, E, G, red ) );
+	triangles.push_back( Triangle( A, E, C, red, vec2(0,0),vec2(1,1),vec2(0,1)) );
+	triangles.push_back( Triangle( C, E, G, red, vec2(0,1),vec2(1,1),vec2(1,0)) );
 
 	// Right wall
 	triangles.push_back( Triangle( F, B, D, green ) );

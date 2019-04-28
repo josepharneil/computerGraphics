@@ -51,6 +51,7 @@ struct Pixel
 struct Vertex
 {
   vec4 position;
+  vec2 textureCoordinates;
   // vec4 normal;
   // vec3 reflectance;
 };
@@ -204,13 +205,13 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
     }
   }
 
-
+  
   //============= Clipping =============//
   //vector to hold all clipped triangles
   vector<Triangle> clippedTriangles;
 	// clippedTriangles.clear();
 	// clippedTriangles.reserve( 40 );
-  
+  /*
   //Apply clipping to each triangle
   for( uint32_t i=0; i<triangles.size(); ++i )
   {
@@ -225,7 +226,8 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
     }
   }
   //============= END Clipping =============//
-
+  */
+  clippedTriangles = triangles;
 
   //For each clipped triangle
   for( uint32_t i=0; i<clippedTriangles.size(); ++i )
@@ -243,6 +245,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
     DrawPolygon( screen, vertices, cameraPos, focalLength, depthBuffer, 
     lightPos, lightPower, indirectLightPowerPerArea, currentNormal, currentReflectance );
   }
+  
 
   
 }
