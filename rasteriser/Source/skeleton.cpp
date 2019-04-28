@@ -681,7 +681,12 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
       //specular
       //phong term must be in range [0,1]
       float phongTerm = pow(DotNoHomogenous(V,R),alpha);
-      if(DotNoHomogenous(V,R) <=0)
+      if(DotNoHomogenous(V,R) <= 0)
+      {
+        phongTerm = 0;
+      }
+      //backface cull of phong
+      if(DotNoHomogenous(V,N)<0)
       {
         phongTerm = 0;
       }
@@ -841,7 +846,6 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
   int n = inputVertices.size();
 
   float pdot = 0;
-  float idot = DotNoHomogenous(planeNormal,(inputVertices[0]-planePoint));
   for(int i = 0; i<n;i++)
   {
     float dot = DotNoHomogenous(planeNormal, (inputVertices[i] - planePoint));
@@ -852,7 +856,7 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
     if(dot * pdot < 0)
     {
       float t = pdot/(pdot - dot);
-      vec4 I = inputVertices[i-1] + t * (inputVertices[i] - inputVertices[i-1]);
+      vec4 I = inputVertices[i-1] + t * (inputVertices[i] - inputVertices[i-1]);//find intersection I
       result.push_back(I);
     }
     
@@ -865,6 +869,7 @@ void ClipToPlane(vector<vec4>& inputVertices, vec4 planePoint, vec4 planeNormal)
     pdot = dot;
   }
 
+  float idot = DotNoHomogenous(planeNormal,(inputVertices[0]-planePoint));
   //check final edge (i.e the edge from )
   if (pdot * idot < 0)
   {
