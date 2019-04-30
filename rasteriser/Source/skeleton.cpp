@@ -206,39 +206,18 @@ void LoadTexture(Image& imageStruct, const string& textureNameString)
 //============= Main =============//
 int main( int argc, char* argv[] )
 {
-  //load wood albedo into vector<unsigned char> woodAlbedo
-  // std::vector<unsigned char> picoImage;
-  // unsigned long dimension = TEXTURE_SIZE;
-  // std::vector<unsigned char> buffer;
-  // loadFile(buffer, "woodAlbedo.png");
-  // int error = decodePNG(picoImage, dimension, dimension, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size(), true);
-  // if(error != 0) std::cout << "error: " << error << std::endl;
-  
-  
-  // // picoImage is a vector of bytes, each byte an RGBA value,
-  // // so vector: RGBARGBARGBA...
-
-  // //vec3[300][300]   300x300 array of (R,G,B)
-  // for(int r = 0; r < TEXTURE_SIZE; r++)
-  // {
-  //   for(int c = 0; c < TEXTURE_SIZE; c++)
-  //   {
-  //     woodAlbedo.pixels[r][c] = getPixelRGB(picoImage,r,c)/255.0f;
-  //   }
-  // }
-
+  //Load in textures
   LoadTexture(woodAlbedo, "woodAlbedo.png");
   LoadTexture(woodSpecular,"woodSpecular.png");
   LoadTexture(woodNormal,"woodNormal.png");
-
-
-  // woodAlbedo.pixels = picoImage;
 
   
 
   //Initially, do not quit
   quit = false;
 
+
+  //Triangulation testing
   // Vertex A = {.position = vec4(0,0,0,1)};
   // Vertex B = {.position = vec4(1,1,1,1)};
   // Vertex C = {.position = vec4(2,2,2,1)};
@@ -833,10 +812,10 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     //Parameters {note: if you decrease alpha, you should decrease k_s, so things look sensible}
     
     //hacky way to make just blue block shiny
-    // if(currentReflectance == vec3(0.15f, 0.15f, 0.75f ))
-    // {
-    //   k_s = 0.15f;
-    // }
+    if(currentReflectance == vec3(0.15f, 0.15f, 0.75f ))
+    {
+      k_s = 0.15f;
+    }
     // if(textureName == "wood")
     // {
     //   k_s = 0.15f;
