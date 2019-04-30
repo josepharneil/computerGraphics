@@ -18,8 +18,8 @@ using glm::ivec2;
 using glm::vec2;
 
 //============= Defines =============//
-#define SCREEN_WIDTH 400
-#define SCREEN_HEIGHT 400//256
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 800//256
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define LIGHT_POWER 5.0f
@@ -60,13 +60,10 @@ struct Vertex
 {
   vec4 position;
   vec2 textureCoordinates;
-  // vec4 normal;
-  // vec3 reflectance;
 };
 
 struct Image
 {
-  //vector<unsigned char> pixels;
   vec3 pixels[TEXTURE_SIZE][TEXTURE_SIZE];
 };
 
@@ -103,6 +100,8 @@ vec3 CheckerBoard(const float& x, const float& y);
 void LoadTexture(Image& imageStruct, const string& textureNameString);
 
 Image woodAlbedo;
+Image woodSpecular;
+Image woodNormal;
 
 
 
@@ -229,6 +228,8 @@ int main( int argc, char* argv[] )
   // }
 
   LoadTexture(woodAlbedo, "woodAlbedo.png");
+  LoadTexture(woodSpecular,"woodSpecular.png");
+  LoadTexture(woodNormal,"woodNormal.png");
 
 
   // woodAlbedo.pixels = picoImage;
@@ -786,6 +787,11 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
 void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
                 vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName )
 {
+  //defaults
+  //default diffuse is the argument currentReflectance
+  float k_s = 0.0f; //default specularity
+
+
   //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
   {
@@ -794,10 +800,8 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     {
       currentReflectance = CheckerBoard(p.textureCoordinates.x, p.textureCoordinates.y);
     }
-    else if(textureName == "wood")
+    if(textureName == "wood")
     {
-
-      // currentReflectance = getUV(woodAlbedo, p.textureCoordinates.x, p.textureCoordinates.y);
       float u = p.textureCoordinates.x;
       float v = p.textureCoordinates.y;
 
@@ -810,15 +814,9 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
         int x = floor(u * TEXTURE_SIZE);
         int y = floor(v * TEXTURE_SIZE);        
         currentReflectance =  woodAlbedo.pixels[x][y];
+        k_s = length(woodSpecular.pixels[x][y]);
       }
     }
-    
-    
-
-
-
-
-
     
     //Vectors (all normalised)
 
@@ -833,14 +831,16 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
 
     
     //Parameters {note: if you decrease alpha, you should decrease k_s, so things look sensible}
-
-    //specular constant
-    float k_s = 0.0f;
+    
     //hacky way to make just blue block shiny
-    if(currentReflectance == vec3(0.15f, 0.15f, 0.75f ))
-    {
-      k_s = 0.15f;
-    }
+    // if(currentReflectance == vec3(0.15f, 0.15f, 0.75f ))
+    // {
+    //   k_s = 0.15f;
+    // }
+    // if(textureName == "wood")
+    // {
+    //   k_s = 0.15f;
+    // }
     //diffuse constant
     float k_d = 1.0f;
     //shininess constant - controls size of specular highlight
@@ -877,7 +877,6 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
 
     depthBuffer[p.y][p.x] = p.zinv;
 
-    // }
   }
 }
 
