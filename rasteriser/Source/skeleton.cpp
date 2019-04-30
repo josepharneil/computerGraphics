@@ -819,7 +819,6 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
 
       if(u < 0 || u >= 1 || v < 0 || v >= 1)
       {
-        //currentReflectance = vec3(0,0,0);
         u = 0;
         v = 0;
       }
@@ -867,17 +866,12 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
       k_s = 0.3f;
       isMetallic = true;
     }
-    // if(textureName == "wood")
-    // {
-    //   k_s = 0.15f;
-    // }
     //diffuse constant
     float k_d = 1.0f;
     //shininess constant - controls size of specular highlight
     float alpha = 10.0f;
     //diffuse falloff constant
     float falloff = 2.0f; //this was 2.0f originally
-
 
     //diffuse
     float A = 4 * M_PI * ( pow(LengthNoHomogenous(lightPos - p.pos3d),falloff));
@@ -901,7 +895,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     //shading = diffuse + specular + ambient {note: specular should not be affected by material color}
     vec3 diffuseShading = k_d * diffuse * currentReflectance;
     vec3 ambientShading = indirectLightPowerPerArea * currentReflectance;
-    vec3 specularShading;// = k_s * specular * vec3(1,1,1);
+    vec3 specularShading;
     if(isMetallic)
     {
       specularShading = k_s * specular * currentReflectance;
