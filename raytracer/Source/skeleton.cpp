@@ -1200,7 +1200,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       //Local hemispherical sampling
       vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
 
-      //Transform to global
+      //Transform to global 
       vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
                                 LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
                                 LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
