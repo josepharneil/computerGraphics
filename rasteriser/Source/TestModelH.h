@@ -95,8 +95,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	triangles.push_back( Triangle( F, H, G, white ) );
 
 	// Back wall
-	triangles.push_back( Triangle( G, D, C, white, vec2(1,1),vec2(0,0),vec2(1,0), "checkerBoard" ) );
-	triangles.push_back( Triangle( G, H, D, white, vec2(1,1),vec2(0,1),vec2(0,0), "checkerBoard") );
+	triangles.push_back( Triangle( G, D, C, white, vec2(1,1),vec2(0,0),vec2(1,0), "wood" ) );
+	triangles.push_back( Triangle( G, H, D, white, vec2(1,1),vec2(0,1),vec2(0,0), "wood") );
 
 	// ---------------------------------------------------------------------------
 	// Short block

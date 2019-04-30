@@ -76,12 +76,12 @@ void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result);
 
 //pixel versions
 void InterpolatePixel(Pixel a, Pixel b, vector<Pixel>& result);
-void DrawPolygonRows( screen* screen, const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName );
+void DrawPolygonRows( screen* screen, const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName );
 void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw);
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels, screen* screen );
-void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance, const string& textureName );
+void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, const string& textureName );
 void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float& focalLength );
-void PixelShader(const Pixel& p, screen* s, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName );
+void PixelShader(const Pixel& p, screen* s, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName );
 vec4 NormaliseNoHomogenous(vec4 vector4);
 void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
 
@@ -196,6 +196,9 @@ void CreateCoordinateSystem(const vec3 &N, vec3 &Nt, vec3 &Nb)
     {
       Nt = vec3(0.0f, -N.z, N.y) / sqrtf(N.y * N.y + N.z * N.z); 
     }
+
+    
+    
     Nb = glm::cross(N,Nt);
 }
 
@@ -342,25 +345,49 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
   {
     //Construct vector of triangle vertices
     vector<Vertex> vertices(3);
+    
+    //Triangle vertices
     vertices[0].position = clippedTriangles[i].v0;
     vertices[1].position = clippedTriangles[i].v1;
     vertices[2].position = clippedTriangles[i].v2;
-    
+
+    //Triangle UV coordinates
     vertices[0].textureCoordinates = clippedTriangles[i].t0;
     vertices[1].textureCoordinates = clippedTriangles[i].t1;
     vertices[2].textureCoordinates = clippedTriangles[i].t2;
 
-    vec4 currentNormal = clippedTriangles[i].normal;
+    //Triangle local coordinate axes
+    vec4 currentNormal = NormaliseNoHomogenous(clippedTriangles[i].normal);
+    vec4 currentTangent;// = clippedTriangles[i].normal;//DEBUGGING: eventually calculate this
+    vec4 currentBitangent;// = clippedTriangles[i].normal;//DEBUGGING: eventually calculate this
+
+    //============= Tangent Bitangent =============//
+    vec3 vertex0V3 = vec3(vertices[0].position.x,vertices[0].position.y,vertices[0].position.z);
+    vec3 vertex1V3 = vec3(vertices[1].position.x,vertices[1].position.y,vertices[1].position.z);
+    vec3 vertex2V3 = vec3(vertices[2].position.x,vertices[2].position.y,vertices[2].position.z);
+
+    vec3 deltaPos1 = vertex1V3 - vertex0V3;
+    vec3 deltaPos2 = vertex2V3 - vertex0V3;
+
+    vec2 deltaUV1 = vertices[1].textureCoordinates - vertices[0].textureCoordinates;
+    vec2 deltaUV2 = vertices[2].textureCoordinates - vertices[0].textureCoordinates;
+
+    float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+    vec3 tangentV3 = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y)*r;
+    vec3 bitangentV3 = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x)*r;
+
+    currentTangent = vec4(tangentV3.x,tangentV3.y,tangentV3.z,1.0f);
+    currentBitangent = vec4(bitangentV3.x,bitangentV3.y,bitangentV3.z,1.0f);
+    //============= END Tangent Bitangent =============//
+
+    //Triangle reflectance/ texture name
     vec3 currentReflectance = clippedTriangles[i].color;
     string textureName =  clippedTriangles[i].textureName;
 
     //Draw polygon for each triangle
     DrawPolygon( screen, vertices, cameraPos, focalLength, depthBuffer, 
-    lightPos, lightPower, indirectLightPowerPerArea, currentNormal, currentReflectance, textureName );
+    lightPos, lightPower, indirectLightPowerPerArea, currentNormal, currentTangent, currentBitangent ,currentReflectance, textureName );
   }
-  
-
-  
 }
 //============= END Draw =============//
 
@@ -479,7 +506,7 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
 //This draws the polygon from some vertices
 void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos, float& focalLength, 
                  float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& lightPos, vec3& lightPower, 
-                 vec3& indirectLightPowerPerArea, vec4& currentNormal, vec3& currentReflectance, const string& textureName )
+                 vec3& indirectLightPowerPerArea, vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, const string& textureName )
 {
 
   //Find number of vertices of polygon (3 for triangle)
@@ -503,7 +530,7 @@ void DrawPolygon(screen* screen, const vector<Vertex>& vertices, vec4& cameraPos
   ComputePolygonRows( vertexPixels, leftPixels, rightPixels, screen );
 
   //Draws the rows
-  DrawPolygonRows( screen, leftPixels, rightPixels, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea, textureName );
+  DrawPolygonRows( screen, leftPixels, rightPixels, depthBuffer, currentNormal, currentTangent, currentBitangent, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea, textureName );
 }
 
 
@@ -624,7 +651,7 @@ void DrawPolygonRows( screen* screen,
                       const vector<Pixel>& leftPixels, 
                       const vector<Pixel>& rightPixels, 
                       float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],
-                      vec4& currentNormal, vec3& currentReflectance, 
+                      vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, 
                       vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName)
 {
   if(isWireframe)
@@ -654,7 +681,7 @@ void DrawPolygonRows( screen* screen,
       {
         if(pixelsBetween[p].y < SCREEN_HEIGHT && pixelsBetween[p].y >= 0 && pixelsBetween[p].x < SCREEN_WIDTH && pixelsBetween[p].x >=0)
         {
-          PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea, textureName );
+          PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentTangent, currentBitangent, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea, textureName );
         } 
       }
     }
@@ -761,13 +788,13 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
 
 //implements the phong model
 void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
-                vec4& currentNormal, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName )
+                vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, 
+                vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName )
 {
   //defaults
   //default diffuse is the argument currentReflectance
   float k_s = 0.0f; //default specularity
   vec4 N = NormaliseNoHomogenous(currentNormal); //default normal
-
 
   //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
@@ -786,6 +813,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
       {
         currentReflectance = vec3(0,0,0);
       }
+      //if UV in range
       else
       {
         int x = floor(u * TEXTURE_SIZE);
@@ -794,15 +822,15 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
         k_s = length(woodSpecular.pixels[x][y]);
         vec3 mapNormal = normalize(woodNormal.pixels[x][y]);
 
-        //Create a local coordinate system based on the current normal
-        vec3 currentNormalV3 = vec3(currentNormal.x,currentNormal.y,currentNormal.z);
-        vec3 Nt;
-        vec3 Nb;
-        CreateCoordinateSystem(currentNormalV3,Nt,Nb);
 
-        N = vec4(mapNormal.x * Nb.x + mapNormal.y * currentNormalV3.x + mapNormal.z * Nt.x, 
-                 mapNormal.x * Nb.y + mapNormal.y * currentNormalV3.y + mapNormal.z * Nt.y, 
-                 mapNormal.x * Nb.z + mapNormal.y * currentNormalV3.z + mapNormal.z * Nt.z, 1.0f);
+        vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z));
+        vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
+        vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
+
+        //transform the normal from the normal map to be oriented with the surface
+        N = vec4(mapNormal.x * currentBitangentV3.x + mapNormal.y * currentNormalV3.x + mapNormal.z * currentTangentV3.x, 
+                 mapNormal.x * currentBitangentV3.y + mapNormal.y * currentNormalV3.y + mapNormal.z * currentTangentV3.y, 
+                 mapNormal.x * currentBitangentV3.z + mapNormal.y * currentNormalV3.z + mapNormal.z * currentTangentV3.z, 1.0f);
 
         N = NormaliseNoHomogenous(N);
 
