@@ -792,8 +792,23 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
         int y = floor(v * TEXTURE_SIZE);        
         currentReflectance =  woodAlbedo.pixels[x][y];
         k_s = length(woodSpecular.pixels[x][y]);
-        vec3 mapNormal = woodNormal.pixels[x][y];
-        cout << mapNormal;
+        vec3 mapNormal = normalize(woodNormal.pixels[x][y]);
+
+        //Create a local coordinate system based on the current normal
+        vec3 currentNormalV3 = vec3(currentNormal.x,currentNormal.y,currentNormal.z);
+        vec3 Nt;
+        vec3 Nb;
+        CreateCoordinateSystem(currentNormalV3,Nt,Nb);
+
+        N = vec4(mapNormal.x * Nb.x + mapNormal.y * currentNormalV3.x + mapNormal.z * Nt.x, 
+                 mapNormal.x * Nb.y + mapNormal.y * currentNormalV3.y + mapNormal.z * Nt.y, 
+                 mapNormal.x * Nb.z + mapNormal.y * currentNormalV3.z + mapNormal.z * Nt.z, 1.0f);
+
+        N = NormaliseNoHomogenous(N);
+
+
+        // cout << mapNormal;
+        //N = vec4(mapNormal.x,mapNormal.y,mapNormal.z,1.0f);
       }
     }
     
