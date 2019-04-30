@@ -100,6 +100,7 @@ vec3 getUV(const Image imageStruct, const float& u, const float& v);
 vec3 getPixelRGB(vector<unsigned char> image,int x, int y);
 
 vec3 CheckerBoard(const float& x, const float& y);
+void LoadTexture(Image& imageStruct, const string& textureNameString);
 
 Image woodAlbedo;
 
@@ -176,7 +177,7 @@ vec3 getUV(const Image imageStruct, const float& u, const float& v)
 
 
 //Will load texture with given name into the given (global) image struct
-void LoadTexture(Image imageStruct, const string& textureNameString)
+void LoadTexture(Image& imageStruct, const string& textureNameString)
 {
   //load wood albedo into vector<unsigned char> woodAlbedo
   std::vector<unsigned char> picoImage;
@@ -207,25 +208,27 @@ void LoadTexture(Image imageStruct, const string& textureNameString)
 int main( int argc, char* argv[] )
 {
   //load wood albedo into vector<unsigned char> woodAlbedo
-  std::vector<unsigned char> picoImage;
-  unsigned long dimension = TEXTURE_SIZE;
-  std::vector<unsigned char> buffer;
-  loadFile(buffer, "woodAlbedo.png");
-  int error = decodePNG(picoImage, dimension, dimension, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size(), true);
-  if(error != 0) std::cout << "error: " << error << std::endl;
+  // std::vector<unsigned char> picoImage;
+  // unsigned long dimension = TEXTURE_SIZE;
+  // std::vector<unsigned char> buffer;
+  // loadFile(buffer, "woodAlbedo.png");
+  // int error = decodePNG(picoImage, dimension, dimension, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size(), true);
+  // if(error != 0) std::cout << "error: " << error << std::endl;
   
   
-  // picoImage is a vector of bytes, each byte an RGBA value,
-  // so vector: RGBARGBARGBA...
+  // // picoImage is a vector of bytes, each byte an RGBA value,
+  // // so vector: RGBARGBARGBA...
 
-  //vec3[300][300]   300x300 array of (R,G,B)
-  for(int r = 0; r < TEXTURE_SIZE; r++)
-  {
-    for(int c = 0; c < TEXTURE_SIZE; c++)
-    {
-      woodAlbedo.pixels[r][c] = getPixelRGB(picoImage,r,c)/255.0f;
-    }
-  }
+  // //vec3[300][300]   300x300 array of (R,G,B)
+  // for(int r = 0; r < TEXTURE_SIZE; r++)
+  // {
+  //   for(int c = 0; c < TEXTURE_SIZE; c++)
+  //   {
+  //     woodAlbedo.pixels[r][c] = getPixelRGB(picoImage,r,c)/255.0f;
+  //   }
+  // }
+
+  LoadTexture(woodAlbedo, "woodAlbedo.png");
 
 
   // woodAlbedo.pixels = picoImage;
@@ -800,20 +803,12 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
 
       if(u < 0 || u >= 1 || v < 0 || v >= 1)
       {
-    //     // cout << "UV out of range" << "\n";
-    //     // cout << "u" << u << "\n";
-    //     // cout << "v" << v << "\n";
         currentReflectance = vec3(0,0,0);
       }
       else
       {
-    //     //cout << "u" << u << "\n";
-    //     //cout << "v" << v << "\n";
         int x = floor(u * TEXTURE_SIZE);
-        int y = floor(v * TEXTURE_SIZE);
-        // cout << x << "\n";
-        // cout << y << "\n";
-        
+        int y = floor(v * TEXTURE_SIZE);        
         currentReflectance =  woodAlbedo.pixels[x][y];
       }
     }
