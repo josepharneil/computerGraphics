@@ -66,7 +66,8 @@ struct Vertex
 
 struct Image
 {
-  vector<unsigned char> pixels;
+  //vector<unsigned char> pixels;
+  vec3 pixels[TEXTURE_SIZE][TEXTURE_SIZE];
 };
 
 //============= Function Definitions =============//
@@ -95,10 +96,10 @@ vec4 ReflectNoHomogenous(vec4 i, vec4 n);
 void ClipToPlane(vector<Vertex>& inputVertices, vec4 planePoint, vec4 planeNormal);
 int decodePNG(std::vector<unsigned char>& out_image, unsigned long& image_width, unsigned long& image_height, const unsigned char* in_png, size_t in_size, bool convert_to_rgba32);
 void loadFile(std::vector<unsigned char>& buffer, const std::string& filename);
-vec3 getUV(Image imageStruct,float u, float v);
+vec3 getUV(const Image imageStruct, const float& u, const float& v);
 vec3 getPixelRGB(vector<unsigned char> image,int x, int y);
 
-vec3 CheckerBoard(float x, float y);
+vec3 CheckerBoard(const float& x, const float& y);
 
 Image woodAlbedo;
 
@@ -132,54 +133,102 @@ std::ostream &operator<<( std::ostream &os, mat4 const &m )
 #pragma endregion
 //============= END Overrides =============//
 
-vec3 getPixelRGB(vector<unsigned char> image,int x, int y)
+vec3 getPixelRGB(vector<unsigned char> image, int x, int y)
 {
-    if(x > TEXTURE_SIZE || y > TEXTURE_SIZE || x <0 || y<0)
-    {
-      cout << "pixel value out of range";
-      cout << "x" << x << "\n";
-      cout << "y" << y << "\n";
-      return vec3(0,0,0);
-    }
-    int i = (x * 4) + (y * TEXTURE_SIZE * 4) ;
-    int r = (int) image[i];
-    int g = (int) image[i+1];
-    int b = (int) image[i+2];
-    return vec3(r,g,b);
+  if(x > TEXTURE_SIZE || y > TEXTURE_SIZE || x <0 || y<0)
+  {
+    cout << "pixel value out of range";
+    cout << "x" << x << "\n";
+    cout << "y" << y << "\n";
+    return vec3(0,0,0);
+  }
+  int i = (x * 4) + (y * TEXTURE_SIZE * 4) ;
+  int r = (int) image[i];
+  int g = (int) image[i+1];
+  int b = (int) image[i+2];
+  return vec3(r,g,b);
 }
 
 //this normalises to [0,1] for SDL
-vec3 getUV(Image imageStruct, float u, float v)
+//called every pixel by pixel shader
+vec3 getUV(const Image imageStruct, const float& u, const float& v)
 {
+  // return vec3(1,0,0);
+
   if(u <0 || u>1 || v<0 || v>1)
   {
-    cout << "UV out of range" << "\n";
-    cout << "u" << u << "\n";
-    cout << "v" << v << "\n";
+    // cout << "UV out of range" << "\n";
+    // cout << "u" << u << "\n";
+    // cout << "v" << v << "\n";
     return vec3(0,0,0);
   }
   //cout << "u" << u << "\n";
   //cout << "v" << v << "\n";
   int x = floor(u * TEXTURE_SIZE);
   int y = floor(v * TEXTURE_SIZE);
-  vec3 pixelValue = getPixelRGB(imageStruct.pixels,x,y);
-  return vec3(pixelValue.x/255.0f,pixelValue.y/255.0f,pixelValue.z/255.0f);
+  
+  return imageStruct.pixels[x][y];
+
+ 
+  // vec3 pixelValue = getPixelRGB(imageStruct.pixels,x,y);
+  // return vec3(pixelValue.x/2  55.0f,pixelValue.y/255.0f,pixelValue.z/255.0f);
 }
 
-//============= Main =============//
-int main( int argc, char* argv[] )
-{
 
+//Will load texture with given name into the given (global) image struct
+void LoadTexture(Image imageStruct, const string& textureNameString)
+{
   //load wood albedo into vector<unsigned char> woodAlbedo
   std::vector<unsigned char> picoImage;
   unsigned long dimension = TEXTURE_SIZE;
   std::vector<unsigned char> buffer;
-  loadFile(buffer, "woodAlbedoResize.png");
-  int error = decodePNG(picoImage, dimension,dimension, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size(),true);
+  loadFile(buffer, textureNameString);
+
+  //Check for error and print if so
+  int error = decodePNG(picoImage, dimension, dimension, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size(), true);
   if(error != 0) std::cout << "error: " << error << std::endl;
   
   
-  woodAlbedo.pixels = picoImage;
+  // picoImage is a vector of bytes, each byte an RGBA value,
+  // so vector: RGBARGBARGBA...
+
+  //vec3[300][300]   300x300 array of (R,G,B)
+  for(int r = 0; r < TEXTURE_SIZE; r++)
+  {
+    for(int c = 0; c < TEXTURE_SIZE; c++)
+    {
+      imageStruct.pixels[r][c] = getPixelRGB(picoImage,r,c)/255.0f;
+    }
+  }
+}
+
+
+//============= Main =============//
+int main( int argc, char* argv[] )
+{
+  //load wood albedo into vector<unsigned char> woodAlbedo
+  std::vector<unsigned char> picoImage;
+  unsigned long dimension = TEXTURE_SIZE;
+  std::vector<unsigned char> buffer;
+  loadFile(buffer, "woodAlbedo.png");
+  int error = decodePNG(picoImage, dimension, dimension, buffer.empty() ? 0 : &buffer[0], (unsigned long)buffer.size(), true);
+  if(error != 0) std::cout << "error: " << error << std::endl;
+  
+  
+  // picoImage is a vector of bytes, each byte an RGBA value,
+  // so vector: RGBARGBARGBA...
+
+  //vec3[300][300]   300x300 array of (R,G,B)
+  for(int r = 0; r < TEXTURE_SIZE; r++)
+  {
+    for(int c = 0; c < TEXTURE_SIZE; c++)
+    {
+      woodAlbedo.pixels[r][c] = getPixelRGB(picoImage,r,c)/255.0f;
+    }
+  }
+
+
+  // woodAlbedo.pixels = picoImage;
 
   
 
@@ -737,12 +786,44 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
   //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
   {
-    
+    //Check for texture name
     if(textureName == "checkerBoard")
     {
-      //currentReflectance = CheckerBoard(p.textureCoordinates.x,p.textureCoordinates.y);
-      currentReflectance = getUV(woodAlbedo,p.textureCoordinates.x,p.textureCoordinates.y);
+      currentReflectance = CheckerBoard(p.textureCoordinates.x, p.textureCoordinates.y);
     }
+    else if(textureName == "wood")
+    {
+
+      // currentReflectance = getUV(woodAlbedo, p.textureCoordinates.x, p.textureCoordinates.y);
+      float u = p.textureCoordinates.x;
+      float v = p.textureCoordinates.y;
+
+      if(u < 0 || u >= 1 || v < 0 || v >= 1)
+      {
+    //     // cout << "UV out of range" << "\n";
+    //     // cout << "u" << u << "\n";
+    //     // cout << "v" << v << "\n";
+        currentReflectance = vec3(0,0,0);
+      }
+      else
+      {
+    //     //cout << "u" << u << "\n";
+    //     //cout << "v" << v << "\n";
+        int x = floor(u * TEXTURE_SIZE);
+        int y = floor(v * TEXTURE_SIZE);
+        // cout << x << "\n";
+        // cout << y << "\n";
+        
+        currentReflectance =  woodAlbedo.pixels[x][y];
+      }
+    }
+    
+    
+
+
+
+
+
     
     //Vectors (all normalised)
 
@@ -1007,7 +1088,7 @@ void ClipToPlane(vector<Vertex>& inputVertices, vec4 planePoint, vec4 planeNorma
 
 }
 //presume (x,y) is a UV coord (i.e. in range [0,1])
-vec3 CheckerBoard(float x, float y)
+vec3 CheckerBoard(const float& x, const float& y)
 { 
   //out of range
   if(x > 1|| y > 1)
@@ -1041,6 +1122,8 @@ vec3 CheckerBoard(float x, float y)
 
 }
 
+
+//============= picoPNG =============//
 
 #include <vector>
 

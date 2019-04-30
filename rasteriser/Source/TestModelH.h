@@ -81,8 +81,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	triangles.push_back( Triangle( C, D, B, white ) );
 
 	// Left wall
-	triangles.push_back( Triangle( A, E, C, red, vec2(1,0),vec2(0,0),vec2(1,1), "checkerBoard") );
-	triangles.push_back( Triangle( C, E, G, red, vec2(1,1),vec2(0,0),vec2(0,1), "checkerBoard") );
+	triangles.push_back( Triangle( A, E, C, red, vec2(1,0),vec2(0,0),vec2(1,1), "wood") );
+	triangles.push_back( Triangle( C, E, G, red, vec2(1,1),vec2(0,0),vec2(0,1), "wood") );
 	// triangles.push_back( Triangle( A, E, C, red ));
 	// triangles.push_back( Triangle( C, E, G, red ));
 
