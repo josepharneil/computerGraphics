@@ -819,7 +819,9 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
 
       if(u < 0 || u >= 1 || v < 0 || v >= 1)
       {
-        currentReflectance = vec3(0,0,0);
+        //currentReflectance = vec3(0,0,0);
+        u = 0;
+        v = 0;
       }
       //if UV in range
       else
@@ -827,9 +829,8 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
         int x = floor(u * TEXTURE_SIZE);
         int y = floor(v * TEXTURE_SIZE);        
         currentReflectance = woodAlbedo.pixels[x][y];
-        k_s = length(woodSpecular.pixels[x][y]);
+        k_s = length(woodSpecular.pixels[x][y]) * 0.1;
         
-
         if (showNormalMap) 
         {
           vec3 normalMapPixels = woodNormal.pixels[x][y];
@@ -837,24 +838,13 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
           vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
           vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
           vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
-
-          //transform the normal from the normal map to be oriented with the surface
-          N = vec4(mapNormal.x * currentBitangentV3.x + mapNormal.y * currentNormalV3.x + mapNormal.z * currentTangentV3.x, 
-                  mapNormal.x * currentBitangentV3.y + mapNormal.y * currentNormalV3.y + mapNormal.z * currentTangentV3.y, 
-                  mapNormal.x * currentBitangentV3.z + mapNormal.y * currentNormalV3.z + mapNormal.z * currentTangentV3.z, 1.0f);
-          
+          mat3 TBN = mat3(currentTangentV3,currentBitangentV3,currentNormalV3);
+          //transform the normal from the normal map to be oriented with the surface using the TBN matrix
+          vec3 NVec3 = TBN * mapNormal;
+          N = vec4(NVec3.x,NVec3.y,NVec3.z,1.0f);
           N = NormaliseNoHomogenous(N);
-         //switch x,y,z into y,z,x
-          N = vec4(N.y,N.z,N.x,1.0f);
-
         }
-        
-        
 
-
-
-        // cout << mapNormal;
-        //N = vec4(mapNormal.x,mapNormal.y,mapNormal.z,1.0f);
       }
     }
     
