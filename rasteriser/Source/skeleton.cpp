@@ -93,11 +93,11 @@ vec4 ReflectNoHomogenous(vec4 i, vec4 n);
 void ClipToPlane(vector<Vertex>& inputVertices, vec4 planePoint, vec4 planeNormal);
 int decodePNG(std::vector<unsigned char>& out_image, unsigned long& image_width, unsigned long& image_height, const unsigned char* in_png, size_t in_size, bool convert_to_rgba32);
 void loadFile(std::vector<unsigned char>& buffer, const std::string& filename);
-vec3 getUV(const Image imageStruct, const float& u, const float& v);
 vec3 getPixelRGB(vector<unsigned char> image,int x, int y);
 
 vec3 CheckerBoard(const float& x, const float& y);
 void LoadTexture(Image& imageStruct, const string& textureNameString, bool isNormalize = true);
+void CreateCoordinateSystem(const vec3 &N, vec3 &Nt, vec3 &Nb) ;
 
 Image woodAlbedo;
 Image woodSpecular;
@@ -149,32 +149,6 @@ vec3 getPixelRGB(vector<unsigned char> image, int x, int y)
   return vec3(r,g,b);
 }
 
-//this normalises to [0,1] for SDL
-//called every pixel by pixel shader
-vec3 getUV(const Image imageStruct, const float& u, const float& v)
-{
-  // return vec3(1,0,0);
-
-  if(u <0 || u>1 || v<0 || v>1)
-  {
-    // cout << "UV out of range" << "\n";
-    // cout << "u" << u << "\n";
-    // cout << "v" << v << "\n";
-    return vec3(0,0,0);
-  }
-  //cout << "u" << u << "\n";
-  //cout << "v" << v << "\n";
-  int x = floor(u * TEXTURE_SIZE);
-  int y = floor(v * TEXTURE_SIZE);
-  
-  return imageStruct.pixels[x][y];
-
- 
-  // vec3 pixelValue = getPixelRGB(imageStruct.pixels,x,y);
-  // return vec3(pixelValue.x/2  55.0f,pixelValue.y/255.0f,pixelValue.z/255.0f);
-}
-
-
 //Will load texture with given name into the given (global) image struct
 void LoadTexture(Image& imageStruct, const string& textureNameString, bool isNormalize)
 {
@@ -210,6 +184,19 @@ void LoadTexture(Image& imageStruct, const string& textureNameString, bool isNor
       imageStruct.pixels[r][c] = getPixelRGB(picoImage,r,c)/div;
     }
   }
+}
+
+void CreateCoordinateSystem(const vec3 &N, vec3 &Nt, vec3 &Nb) 
+{ 
+    if (fabs(N.x) > fabs(N.y)) 
+    {
+      Nt = vec3(N.z, 0.0f, -N.x) / sqrtf(N.x * N.x + N.z * N.z);
+    }
+    else
+    {
+      Nt = vec3(0.0f, -N.z, N.y) / sqrtf(N.y * N.y + N.z * N.z); 
+    }
+    Nb = glm::cross(N,Nt);
 }
 
 
