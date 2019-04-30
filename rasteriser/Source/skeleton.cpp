@@ -209,7 +209,7 @@ int main( int argc, char* argv[] )
   //Load in textures
   LoadTexture(woodAlbedo, "woodAlbedo.png");
   LoadTexture(woodSpecular,"woodSpecular.png");
-  LoadTexture(woodNormal,"normalTest.png",false);
+  LoadTexture(woodNormal,"woodNormal.png",false);
 
   
 
@@ -832,8 +832,9 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
 
         if (showNormalMap) 
         {
-          vec3 mapNormal = normalize(woodNormal.pixels[x][y]);
-          vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z));
+          vec3 normalMapPixels = woodNormal.pixels[x][y];
+          vec3 mapNormal = vec3(2.0f*(normalMapPixels.x/255.0f)-1.0f,2.0f*(normalMapPixels.y/255.0f)-1.0f,2.0f*(normalMapPixels.z/255.0f)-1.0f); //normalise using 2*(color/255) -1
+          vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
           vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
           vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
 
@@ -841,12 +842,11 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
           N = vec4(mapNormal.x * currentBitangentV3.x + mapNormal.y * currentNormalV3.x + mapNormal.z * currentTangentV3.x, 
                   mapNormal.x * currentBitangentV3.y + mapNormal.y * currentNormalV3.y + mapNormal.z * currentTangentV3.y, 
                   mapNormal.x * currentBitangentV3.z + mapNormal.y * currentNormalV3.z + mapNormal.z * currentTangentV3.z, 1.0f);
-
+          
           N = NormaliseNoHomogenous(N);
+         //switch x,y,z into y,z,x
+          N = vec4(N.y,N.z,N.x,1.0f);
 
-          // cout << "\ntangent: " << currentTangentV3 << "\n";
-          // cout << "bitangent: " << currentBitangentV3 << "\n";
-          // cout << "normal: " << currentNormalV3 << "\n";
         }
         
         
