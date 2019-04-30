@@ -19,8 +19,8 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 400
-#define SCREEN_HEIGHT 400
+#define SCREEN_WIDTH 150
+#define SCREEN_HEIGHT 150
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define RAYDEPTH 10
@@ -32,11 +32,14 @@ using glm::mat4;
 #define APERTURE 0.0f//use 0.2f
 // #define isAAOn false
 #define FOG_STRENGTH 0.0f//use 0.03f
-#define USE_INPUTS false
+#define USE_INPUTS true
 
 //============= Global Variables =============//
 int timeT;
 bool quit;
+
+vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
+vec4 metaCentreTEMP2(0.15f,-0.8f,-0.7f,1.0f);
 
 
 //============= Overrides =============//
@@ -72,6 +75,7 @@ struct Intersection
   float distance;
   int triangleIndex;
   int sphereIndex;
+  int metaballIndex;
 };
 
 // struct Triangle
@@ -106,6 +110,17 @@ class Sphere
     : centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness), refractiveIndex(refractiveIndex){}
 };
 
+class Metaball
+{
+  public:
+    vec4 centre;
+    float radius;
+    vec3 color;
+
+  Metaball( vec4 centre, float radius, vec3 color )
+    : centre(centre), radius(radius), color(color){}
+};
+
 
 
 
@@ -114,22 +129,18 @@ class Sphere
 //============= Function Defs =============//
 #pragma region FunctionDefs
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
-                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight,bool& isFog);
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight,bool& isFog, vector<Metaball>& metaballs);
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                            int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix,bool& isAAOn, 
                            vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight,
-                           const vector<Sphere>& spheres,bool& isFog);
-bool ClosestIntersection(
-  vec4 start,
-  vec4 dir,
-  const vector<Triangle>& triangles,
-  Intersection& closestIntersection, const vector<Sphere>& spheres);
+                           const vector<Sphere>& spheres,bool& isFog, const vector<Metaball>& metaballs);
+bool ClosestIntersection(vec4 start,vec4 dir,const vector<Triangle>& triangles,Intersection& closestIntersection, const vector<Sphere>& spheres, const vector<Metaball>& metaballs);
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
-                  vec3& lightColour, vector<Triangle>& triangles, const vector<Sphere>& spheres);
+                  vec3& lightColour, vector<Triangle>& triangles, const vector<Sphere>& spheres, const vector<Metaball>& metaballs);
 vec3 AreaLightSample( Intersection& intersection, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres );
+                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres,const vector<Metaball>& metaballs );
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool &isAreaLight,const vector<Sphere>& spheres );
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool &isAreaLight,const vector<Sphere>& spheres,const vector<Metaball>& metaballs );
 void CreateCoordinateSystem(const vec3& N, vec3& Nt, vec3& Nb);
 vec3 UniformSampleHemisphere(const float &rand1, const float &rand2);
 float FogAmount(const vec3 start,const vec3 end);
@@ -142,7 +153,122 @@ vec3 Vec4ToVec3(vec4& vec4);
 vec4 Vec3ToHomogenous(vec3& vec3);
 void PrintPairOfNumbers(float f1, float f2);
 
+
+float MetaballFunction(const float& r)
+{
+  // if(r >= 0.707f){return 0;}
+  // if(r < 0){return 0;}
+
+  return 1.0f/pow(r,2);//pow(r,4) - pow(r,2) + 0.25f;
+  // r^4 - r^2 + 0.25
+  // return 6*pow(r,5) - 15*pow(r,4) + 10*pow(r,3);
+  // 6r^5 - 15r^4 + 10r^3 
+}
+
+float DistanceBetween(const vec4& a, const vec4& b)
+{
+  return sqrtf(fabs(a.x - b.x) + fabs(a.y - b.y) + fabs(a.z - b.z));
+}
+
+bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& direction)
+{
+  vec4 currentRayPosition = vec4(0,0,0,1);
+  for(int cast = 0; cast < 1000; cast++)
+  {      
+    //cast ray 0.1f ahead
+    currentRayPosition = currentRayPosition + direction * 0.001f;
+    currentRayPosition.w = 1;
+
+  
+    //get sum of all metaballs evaluated 
+    float result = 0.0f;
+    for(int i = 0; i < metaballs.size(); i++)
+    {
+      vec4 metaballCentre = metaballs[i].centre;
+
+      float radiusDistance = DistanceBetween(currentRayPosition,metaballCentre);
+      // cout << radiusDistance << "\n";
+      result += MetaballFunction(radiusDistance);
+    }
+    // result /= metaballs.size();
+
+    // cout << result << "\n";
+    //if result is above threshold, place colour
+    if (result > 0.5f)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+bool ClosestMetaballIntersection(vec4 start,vec4 dir,const vector<Metaball>& metaballs,Intersection &closestIntersection)
+{
+  start = start + 1e-4f * dir;
+  //Get closest intersection
+  float minDist = numeric_limits<float>::max();
+  bool result = false;
+
+  //============= Metaballs =============//
+  for(int i = 0; i < metaballs.size(); i++)
+  {
+    float t0,t1;
+    vec4 L = metaballs[i].centre - start;
+    // if (abs(dir.x) < 0.01f && abs(dir.y) < 0.01f)
+    float tca = glm::dot(L,dir);
+    // cout << glm::dot(dir, dir) << "\n";
+    if(tca < 0.0f)
+    {
+      continue;
+    }
+    float d2 = glm::dot(L,L) - (tca * tca); 
+    
+    // cout << d2<< "cont\n";
+    if (d2 > (metaballs[i].radius * metaballs[i].radius))
+    {
+      continue;
+    }
+    //cout << (tca * tca) << "\n";
+    float thc = sqrt((metaballs[i].radius* metaballs[i].radius) - d2); 
+    t0 = tca - thc; 
+    t1 = tca + thc; 
+
+    if (t0 > t1) 
+    {
+      std::swap(t0, t1);
+    }
+
+    if (t0 < 0.0f)
+    { 
+      t0 = t1; // if t0 is negative, let's use t1 instead 
+      if (t0 < 0.0f) 
+      {
+        continue;
+      } // both t0 and t1 are negative 
+    }
+
+    //If get to this point then an intersection has occured.
+    float t = t0;
+    if (t < minDist)
+    {
+        //cout<<"sphere found" << "\n";
+        closestIntersection.position = vec4(start.x+t*dir.x, start.y+t*dir.y, start.z+t*dir.z, 1);
+        closestIntersection.distance = t;
+        closestIntersection.sphereIndex = -1;
+        closestIntersection.triangleIndex = -1;
+        closestIntersection.metaballIndex = i;
+
+        // cout << closestIntersection.distance << "\n";
+        minDist = t;
+    }
+    result = true;
+  }
+  return result;
+}
+
 #pragma endregion FunctionDefs
+
 
 
 //============= Main =============//
@@ -223,20 +349,106 @@ int main( int argc, char* argv[] )
   originalSpheres.clear();
   originalSpheres.reserve( 5*2*3 );
 
-  vec4 centreTEMP(-0.4f,-0.1f,-0.5f,1.0f);
-  vec4 centreTEMP2(0.3f,-0.2f,-0.3f,1.0f);
-  Sphere mySphere = Sphere(centreTEMP,0.2f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,1.0f);
-  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,2.42f);
+  vec4 centreTEMP(-0.2f,-0.1f,-0.5f,1.0f);
+  vec4 centreTEMP2(0.1f,-0.2f,-0.3f,1.0f);
+  Sphere mySphere = Sphere(centreTEMP,0.1f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,1.0f);
+  Sphere mySphere2 = Sphere(centreTEMP2,0.1f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,2.42f);
   spheres.push_back( mySphere );
   spheres.push_back( mySphere2 );
   originalSpheres.push_back( mySphere );
   originalSpheres.push_back( mySphere2 );
 
+  //============= CreateMetaballs =============//
+  vector<Metaball> metaballs;
+  vector< Metaball> originalMetaballs;
 
+  metaballs.clear();
+  metaballs.reserve( 5*2*3 );
+
+  originalMetaballs.clear();
+  originalMetaballs.reserve( 5*2*3 );
+
+  // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
+  
+  // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
+  Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,1.0f,0.75f));
+  Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(1.0f,0.0f,1.0f));
+  // Metaball metaball3 = Metaball(metaCentreTEMP3,0.2f,vec3(1.0f,.0f,1.0f));
+  metaballs.push_back( metaball1 );
+  metaballs.push_back( metaball2 );
+  // metaballs.push_back( metaball3 );
+  originalMetaballs.push_back( metaball1 );
+  originalMetaballs.push_back( metaball2 );
+  // originalMetaballs.push_back( metaball3 );
+
+  // Metaball mymetaball;
+  // vec4 myoffset;
+  // for(int i = 0; i < 50; i++)
+  // {
+  //   float offset = i * 0.05f;
+  //   if(i%2 == 0)
+  //   {
+  //     myoffset = vec4(offset,0,0,0);
+  //   }
+  //   else
+  //   {
+  //     myoffset = vec4(0,offset,0,0);
+  //   }
+    
+  //   vec3 random = vec3(((float)(rand() % 100))/100.0f,((float)(rand() % 100))/100.0f,((float)(rand() % 100))/100.0f);
+  //   // cout << random << "\n";
+  //   vec4 newcentre = metaCentreTEMP+myoffset;
+  //   Metaball mymetaball = Metaball(newcentre,0.05f,random);
+  //   newcentre = metaCentreTEMP2+myoffset;
+  //   Metaball mymetaball2 = Metaball(newcentre,0.05f,random);
+
+  //   metaballs.push_back(mymetaball);
+  //   originalMetaballs.push_back(mymetaball);
+
+  //   metaballs.push_back(mymetaball2);
+  //   originalMetaballs.push_back(mymetaball2);
+  // }
+
+  // for(int i = 0; i < 25; i++)
+  // {
+  //   if(i%2 == 0)
+  //   {
+  //     myoffset = vec4(((float)i*0.000002f),0,0,1);
+  //   }
+  //   else
+  //   {
+  //     myoffset = vec4(0,((float)i*0.000002f),0,1);
+  //   }
+
+  //   Metaball mymetaball = Metaball(metaCentreTEMP2+myoffset,0.00005f,vec3(0.75f,0.75f,0.75f));
+
+  //   metaballs.push_back(mymetaball);
+  //   originalMetaballs.push_back(mymetaball);
+  // }
+    
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight,isFog);
+    metaballs.clear();
+    metaballs.reserve( 5*2*3 );
+
+    originalMetaballs.clear();
+    originalMetaballs.reserve( 5*2*3 );
+
+    // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
+    
+    // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
+    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,1.0f,0.75f));
+    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(1.0f,0.0f,1.0f));
+    // Metaball metaball3 = Metaball(metaCentreTEMP3,0.2f,vec3(1.0f,.0f,1.0f));
+    metaballs.push_back( metaball1 );
+    metaballs.push_back( metaball2 );
+    // metaballs.push_back( metaball3 );
+    originalMetaballs.push_back( metaball1 );
+    originalMetaballs.push_back( metaball2 );
+    // originalMetaballs.push_back( metaball3 );
+    
+    Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight,isFog, metaballs);
 
     //Rotation
     mat4 invCameraMatrix = glm::inverse(cameraMatrix);
@@ -255,12 +467,17 @@ int main( int argc, char* argv[] )
       spheres[s].centre = invCameraMatrix * originalSpheres[s].centre;
     }
 
+    for (int s = 0; s < metaballs.size(); s++)
+    {
+      metaballs[s].centre = invCameraMatrix * originalMetaballs[s].centre;
+    }
+
     // cout << spheres[0].centre << "\n";
 
     lightPos = invCameraMatrix * originalLightPos;
 
     
-    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight, spheres,isFog);
+    Draw(screen, triangles, cameraPos, yaw, lightPos, lightColour, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight, spheres, isFog, metaballs);
 
 
     SDL_Renderframe(screen);
@@ -278,7 +495,8 @@ int main( int argc, char* argv[] )
 //============= Draw =============//
 void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, 
                           int& yaw, vec4& lightPos, vec3& lightColour, mat4& cameraMatrix, bool& isAAOn, 
-                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight, const vector<Sphere>& spheres, bool& isFog)
+                          vec3 screenAccumulator[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, 
+                          bool& isAreaLight, const vector<Sphere>& spheres, bool& isFog, const vector<Metaball>& metaballs)
 {
   if(sampleCount == DIFFUSE_SAMPLES) {return;}
   /* Clear buffer */
@@ -448,7 +666,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
             vec4(apertureSample[i].x,apertureSample[i].y,0.0f,1),
             directions[i],
             triangles,
-            closestIntersections[i],spheres);
+            closestIntersections[i],spheres,metaballs);
         }
 
         vec3 colourTotal = vec3(0.0f,0.0f,0.0f);
@@ -473,7 +691,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
               isSampleDirectLight = false;
             }
 
-            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight,spheres);
+            vec3 pathTracedLight = PathTracer(closestIntersections[i], lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight,spheres,metaballs);
 
             if(isFog)
             {            
@@ -532,14 +750,13 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         //New direction
         direction = NormaliseNoHomogenous(focalPoint - vec4(randX,randY,0.0f,0.0f));
 
-
         //Compute ClosestIntersection
         bool intersect = ClosestIntersection(
           vec4(randX,randY,0.0f,1.0f),
           direction,
           triangles,
           closestIntersection,
-          spheres);
+          spheres,metaballs);
 
         // cout << spheres.size() << "\n";
         
@@ -547,9 +764,6 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         //If an intersection occurs
         if (intersect)
         {
-          // cout << spheres.size() << "\n";
-          //Get triangle from triangles
-          // Triangle intersectedTriangle = triangles[closestIntersection.triangleIndex];
           // if(closestIntersection.triangleIndex != -1)
           // {
           //   PutPixelSDL(screen, col, row, vec3(0.25f,0.0f,0.25f));
@@ -558,8 +772,64 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           // {
           //   PutPixelSDL(screen, col, row, vec3(1.0f,1.0f,1.0f));
           // }
+          // if(false)//closestIntersection.metaballIndex != -1)
+          // {
+          //   bool intersect = ClosestIntersection(
+          //   closestIntersection.position,
+          //   direction,
+          //   triangles,
+          //   closestIntersection,
+          //   spheres,metaballs);
 
-          // Only sample direct light for 0th sample
+          //   // MetaballFunction
+
+          //   if(intersect)
+          //   {
+          //     if(closestIntersection.triangleIndex != -1)
+          //     {
+          //       PutPixelSDL(screen, col, row, vec3(0.25f,0.0f,0.25f));
+          //     }
+          //     if(closestIntersection.sphereIndex != -1)
+          //     {
+          //       PutPixelSDL(screen, col, row, vec3(1.0f,1.0f,1.0f));
+          //     }
+
+          //     bool intersect = ClosestIntersection(
+          //     closestIntersection.position,
+          //     direction,
+          //     triangles,
+          //     closestIntersection,
+          //     spheres,metaballs);
+
+          //     if(intersect)
+          //     {
+          //       if(closestIntersection.triangleIndex != -1)
+          //       {
+          //         PutPixelSDL(screen, col, row, vec3(0.25f,0.0f,0.25f));
+          //       }
+          //       if(closestIntersection.sphereIndex != -1)
+          //       {
+          //         PutPixelSDL(screen, col, row, vec3(1.0f,1.0f,1.0f));
+          //       }
+          //     }
+
+          //   }
+
+
+
+
+            // Metaball intersectedMetaball = metaballs[closestIntersection.metaballIndex];
+            // float result = MetaballFunction(intersectedMetaball.radius);
+            // cout <<result << "\n";
+            // if( result > 0.00015 )
+            // {
+              // PutPixelSDL(screen, col, row, vec3(1.0f,0.0f,1.0f));
+            // }
+          // }
+
+
+
+          // // Only sample direct light for 0th sample
           bool isSampleDirectLight;
           if(sampleCount == 1)
           {
@@ -571,7 +841,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           }
           
           //Path trace the light
-          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight,spheres);
+          vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight,spheres,metaballs);
 
           //Accumulate
           screenAccumulator[col][row] += pathTracedLight;
@@ -592,9 +862,84 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           }
           
           
-          //set to colour of that triangle
+          // //set to colour of that triangle
           PutPixelSDL(screen, col, row, currentColour);
         }
+
+        // bool isSampleDirectLight;
+        // if(sampleCount == 1)
+        // {
+          // isSampleDirectLight = true;
+        // }
+        // else
+        // {
+          // isSampleDirectLight = false;
+        // }
+          
+        // bool isMetabool = StepNTimesToMetaBall(metaballs, direction);
+        // float result = 0.0f;
+        // for(int i = 0; i < metaballs.size(); i++)
+        // {
+        //   // for
+        //   vec4 metaballRad = metaballs[i].centre;
+
+        //   float radiusDistance = DistanceBetween(currentRayPosition,metaballRad);//sqrtf((fabs(currentRayPosition.x - metaballRad.x)) + (fabs(currentRayPosition.y - metaballRad.y)) + fabs(currentRayPosition.z - metaballRad.z));
+        //   // cout << radiusDistance << "\n";
+        //   result += MetaballFunction(radiusDistance);
+        // }
+        // if(isMetabool)
+        // {
+          // vec3 pathTracedLight = PathTracer(closestIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight,isAreaLight,spheres,metaballs);
+
+          //Accumulate
+          // screenAccumulator[col][row] += pathTracedLight;
+
+          // cout << cameraPos << "\n";
+
+          //Average over #samples
+          // vec3 currentColour = vec3(screenAccumulator[col][row].x/sampleCount,screenAccumulator[col][row].y/sampleCount,screenAccumulator[col][row].z/sampleCount);
+        Intersection metaballIntersection;
+        bool isMetaballIntersection = ClosestMetaballIntersection(vec4(randX,randY,0.0f,1.0f),direction,metaballs,metaballIntersection);
+
+        if(isMetaballIntersection)
+        {
+          // PutPixelSDL(screen, col, row, metaballs[metaballIntersection.metaballIndex].color);
+          float result = 0.0f;
+          // for(int i = 0; i < metaballs.size(); i++)
+          // {
+            for(int j = 0; j < metaballs.size(); j++)
+            {
+              // vec4 metaballRad = metaballs[i].centre;
+
+              //Get distance between THIS metaball, and all other metaballs
+              // vec3 pos = Vec4ToVec3(metaballIntersection);
+              // - metaballs[j].radius
+              float radiusDistance = DistanceBetween(metaballIntersection.position, metaballs[j].centre - NormaliseNoHomogenous(metaballIntersection.position) * (metaballs[j].radius+0.1f));
+
+              // cout << radiusDistance << "\n";
+
+              //Accumlate result
+              result += MetaballFunction(radiusDistance);
+            }
+
+            // cout << result<< "\n";
+            if(result > 0.48f)
+            {
+              PutPixelSDL(screen, col, row, metaballs[metaballIntersection.metaballIndex].color);
+            }
+          // }
+
+          bool isMetaBool = StepNTimesToMetaBall(metaballs,direction);
+          if(isMetaBool)
+          {
+            PutPixelSDL(screen, col, row, vec3(1,0,0));
+          }
+        }
+
+
+
+
+
       }//end no aa
     }
   }//end loop through pixels
@@ -624,7 +969,7 @@ float FogUnitCurveArea(float end,float start,float amplitude,float frequency)
 //============= Update =============//
 /*Place updates of parameters here*/
 void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool& isAAOn, 
-                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight, bool &isFog)
+                              vec3 screenAcc[SCREEN_WIDTH][SCREEN_HEIGHT], int &sampleCount, float& focalSphereRad, bool& isAreaLight, bool &isFog, vector<Metaball>& metaballs)
 {
   // static int t = SDL_GetTicks();
   /* Compute frame time */
@@ -656,7 +1001,15 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
         //Move camera backward
         cameraPos.z -= movementSpeed;
         // cout << cameraPos << "\n";
+      }
 
+      if( e.key.keysym.scancode == SDL_SCANCODE_0)
+      {
+        metaCentreTEMP.x += 0.05f;
+      }
+      if( e.key.keysym.scancode == SDL_SCANCODE_9)
+      {
+        metaCentreTEMP.x -= 0.05f;
       }
 
       //MOVE LEFT/RIGHT
@@ -805,7 +1158,8 @@ bool ClosestIntersection(
   vec4 dir,
   const vector<Triangle>& triangles,
   Intersection& closestIntersection,
-  const vector<Sphere>& spheres)
+  const vector<Sphere>& spheres,
+  const vector<Metaball>& metaballs)
 {
   start = start + 1e-4f * dir;
   //Get closest intersection
@@ -856,6 +1210,7 @@ bool ClosestIntersection(
         closestIntersection.distance = t;
         closestIntersection.sphereIndex = -1;
         closestIntersection.triangleIndex = i;
+        closestIntersection.metaballIndex = -1;
 
         minDist = t;
       }
@@ -913,6 +1268,7 @@ bool ClosestIntersection(
         closestIntersection.distance = t;
         closestIntersection.sphereIndex = i;
         closestIntersection.triangleIndex = -1;
+        closestIntersection.metaballIndex = -1;
 
         // cout << closestIntersection.distance << "\n";
         minDist = t;
@@ -928,7 +1284,7 @@ bool ClosestIntersection(
 //======== Lighting ========//
 //Returns power only - colour is ignored
 vec3 DirectLight( Intersection& intersection, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres )
+                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres, const vector<Metaball>& metaballs )
 {
   // Light colour is P
   vec3 P = lightColour;
@@ -944,6 +1300,11 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
     // cout <<"sphere\n";
     nNorm = NormaliseNoHomogenous(intersection.position - spheres[intersection.sphereIndex].centre);
   }
+  else if(intersection.metaballIndex != -1)
+  {
+    nNorm = NormaliseNoHomogenous(intersection.position - metaballs[intersection.metaballIndex].centre);
+  }
+  
 
   
   // r is vector from intersection point to light source
@@ -973,7 +1334,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
   //Move all points a very small amount along the ray.
   //This 1e-5f is to account for these floating point errors.
   // bool intersectionFound = ClosestIntersection(intersection.position + 1e-4f * lightDirNorm,lightDirNorm,triangles,lightIntersection);
-  bool intersectionFound = ClosestIntersection(intersection.position,lightDirNorm,triangles,lightIntersection,spheres);
+  bool intersectionFound = ClosestIntersection(intersection.position,lightDirNorm,triangles,lightIntersection,spheres,metaballs);
   
   //If an intersection is found
   //2nd part of conjunction is to deal with the light being inside of the wall 
@@ -993,7 +1354,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 
 //current is the point we want to find lighting for; previous is where we cast a ray from to find this point.
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool& isAreaLight, const vector<Sphere>& spheres )
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool& isAreaLight, const vector<Sphere>& spheres,const vector<Metaball>& metaballs )
 {
   // float BRDF = 1.0f;
   //============= Russian Roulette =============//
@@ -1033,13 +1394,13 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
       //Find the next intersection of the reflected ray
       Intersection nextIntersection;
-      bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres);
+      bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres,metaballs);
 
       //If there is an intersection
       if(isIntersection)
       {
         //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres) * triangles[current.triangleIndex].color);
+        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs) * triangles[current.triangleIndex].color);
       }
       else//If there is no intersection, don't recurse anymore 
       {
@@ -1082,14 +1443,14 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
       //Find the next intersection of the refracted ray
       Intersection nextIntersection;
-      bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres);
+      bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres,metaballs);
 
       //If there is an intersection
       if(isIntersection)
       {
         // cout << refractedRayV4 << "\n";
         //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-        result += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres) * triangles[current.triangleIndex].color);
+        result += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs) * triangles[current.triangleIndex].color);
         // cout <<"result" <<result << "\n";
       }
       else//If there is no intersection, don't recurse anymore 
@@ -1151,7 +1512,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         //============= Cast Ray/ Closest Intersection =============//
         //Cast ray
         Intersection nextIntersection;
-        bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres);
+        bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres,metaballs);
 
         //If there is an intersection
         if(isIntersection)
@@ -1159,7 +1520,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
           // vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
           // cout << BRDF << "\n";
           //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres) * triangles[current.triangleIndex].color);
+          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs) * triangles[current.triangleIndex].color);
         }
         else//If there is no intersection, don't recurse anymore 
         {
@@ -1200,14 +1561,14 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       //Local hemispherical sampling
       vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
 
-      //Transform to global 
+      //Transform to global
       vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
                                 LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
                                 LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
       
       //"Cast" ray, ie., find ClosestIntersection
       Intersection nextIntersection;
-      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres);
+      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres,metaballs);
 
       //If there is an interesction, recurse at +1 depth
       if(isIntersect)
@@ -1216,7 +1577,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosThrefractiveIndexRatio));
 
         float cosThrefractiveIndexRatio = rand1;
-        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosThrefractiveIndexRatio*0.5f); //0.5f is the attenuation factor
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs)*cosThrefractiveIndexRatio*0.5f); //0.5f is the attenuation factor
       }
       else//If there is no intersection, do nothing
       {
@@ -1269,12 +1630,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
           //Compute direct light
           float BRDF = 1.0f;// pow(abs(glm::dot(viewDirection,reflectedRay)),3); //was 50
 
-          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color) * BRDF);
+          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres, metaballs ) * triangles[current.triangleIndex].color) * BRDF);
         }
         else //if we are casting a diffuse ray
         {
           
-          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * triangles[current.triangleIndex].color));
+          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres, metaballs ) * triangles[current.triangleIndex].color));
 
         }
 
@@ -1299,11 +1660,11 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
           // float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
           float BRDF = 1.0f;
 
-          result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres ) * triangles[current.triangleIndex].color)) * BRDF   );
+          result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres,metaballs ) * triangles[current.triangleIndex].color)) * BRDF   );
         }
         else  //if we are casting a diffuse ray
         {
-          result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres ) * triangles[current.triangleIndex].color));
+          result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres,metaballs ) * triangles[current.triangleIndex].color));
         }
       }
     }
@@ -1331,13 +1692,13 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 
       //Find the next intersection of the reflected ray
       Intersection nextIntersection;
-      bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres);
+      bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres,metaballs);
 
       //If there is an intersection
       if(isIntersection)
       {
         //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres) * spheres[current.sphereIndex].color);
+        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs) * spheres[current.sphereIndex].color);
       }
       else//If there is no intersection, don't recurse anymore 
       {
@@ -1391,12 +1752,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         //Find the next intersection of the refracted ray
         Intersection nextIntersection;
         //bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres);
-        bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres);
+        bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres,metaballs);
 
         //If there is an intersection
         if(isIntersection)
         {
-          result += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres));// * spheres[current.sphereIndex].color);
+          result += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs));// * spheres[current.sphereIndex].color);
           // return result;
         }
         else//If there is no intersection, don't recurse anymore 
@@ -1461,7 +1822,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         //============= Cast Ray/ Closest Intersection =============//
         //Cast ray
         Intersection nextIntersection;
-        bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres);
+        bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres,metaballs);
 
         //If there is an intersection
         if(isIntersection)
@@ -1471,7 +1832,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
           // BRDF = 1.0f;
 
           //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
-          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres) * spheres[current.sphereIndex].color);
+          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs) * spheres[current.sphereIndex].color);
         }
         else//If there is no intersection, don't recurse anymore 
         {
@@ -1520,7 +1881,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
       
       //"Cast" ray, ie., find ClosestIntersection
       Intersection nextIntersection;
-      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres);
+      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres,metaballs);
 
       //If there is an interesction, recurse at +1 depth
       if(isIntersect)
@@ -1529,7 +1890,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
         // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosThrefractiveIndexRatio));
 
         float cosThrefractiveIndexRatio = rand1;
-        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres)*cosThrefractiveIndexRatio*0.5f); //0.5f is the attenuation factor
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs)*cosThrefractiveIndexRatio*0.5f); //0.5f is the attenuation factor
       }
       else//If there is no intersection, do nothing
       {
@@ -1574,12 +1935,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
           //Compute direct light
           float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
 
-          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * spheres[current.sphereIndex].color) * BRDF);
+          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres, metaballs ) * spheres[current.sphereIndex].color) * BRDF);
         }
         else //if we are casting a diffuse ray
         {
           
-          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres ) * spheres[current.sphereIndex].color));
+          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres, metaballs ) * spheres[current.sphereIndex].color));
 
         }
 
@@ -1603,12 +1964,12 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
           //Compute direct light
           float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
 
-          result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres ) * spheres[current.sphereIndex].color)) * BRDF   );
+          result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres,metaballs ) * spheres[current.sphereIndex].color)) * BRDF   );
         }
         else  //if we are casting a diffuse ray
         {
           
-          result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres ) * spheres[current.sphereIndex].color));
+          result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres,metaballs ) * spheres[current.sphereIndex].color));
 
         }
       }
@@ -1625,7 +1986,7 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
 }
 
 vec3 AreaLightSample( Intersection& intersection, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres )
+                        vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres, const vector<Metaball>& metaballs )
 {
   //============= Find Hits to Area Light =============//
   int hits = 0;
@@ -1661,7 +2022,7 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
     float lightDist = glm::length(lightDir);
 
     Intersection lightIntersection;
-    bool intersectionFound = ClosestIntersection(intersection.position,lightDirNormalised,triangles,lightIntersection,spheres);
+    bool intersectionFound = ClosestIntersection(intersection.position,lightDirNormalised,triangles,lightIntersection,spheres,metaballs);
     
     //If no intersection found, then we hit the light
     if(!intersectionFound)
