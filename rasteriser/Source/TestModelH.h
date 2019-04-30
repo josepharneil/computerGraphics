@@ -145,24 +145,24 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	H = vec4(314,330,456,1);
  
 	// Front
-	// triangles.push_back( Triangle(E,B,A,blue) );
-	// triangles.push_back( Triangle(E,F,B,blue) );
+	triangles.push_back( Triangle(E,B,A,blue) );
+	triangles.push_back( Triangle(E,F,B,blue) );
 
 	// BOTTOM
-	// triangles.push_back( Triangle(F,D,B,blue) );
-	// triangles.push_back( Triangle(F,H,D,blue) );
+	triangles.push_back( Triangle(F,D,B,blue) );
+	triangles.push_back( Triangle(F,H,D,blue) );
 
 	// BACK
-	// triangles.push_back( Triangle(H,C,D,blue) );
-	// triangles.push_back( Triangle(H,G,C,blue) );
+	triangles.push_back( Triangle(H,C,D,blue) );
+	triangles.push_back( Triangle(H,G,C,blue) );
 
 	// LEFT
-	// triangles.push_back( Triangle(G,E,C,blue) );
-	// triangles.push_back( Triangle(E,A,C,blue) );
+	triangles.push_back( Triangle(G,E,C,blue) );
+	triangles.push_back( Triangle(E,A,C,blue) );
 
 	// TOP
-	// triangles.push_back( Triangle(G,F,E,blue) );
-	// triangles.push_back( Triangle(G,H,F,blue) );
+	triangles.push_back( Triangle(G,F,E,blue) );
+	triangles.push_back( Triangle(G,H,F,blue) );
 
 
 	// ----------------------------------------------
