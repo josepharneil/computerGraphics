@@ -97,7 +97,7 @@ vec3 getUV(const Image imageStruct, const float& u, const float& v);
 vec3 getPixelRGB(vector<unsigned char> image,int x, int y);
 
 vec3 CheckerBoard(const float& x, const float& y);
-void LoadTexture(Image& imageStruct, const string& textureNameString);
+void LoadTexture(Image& imageStruct, const string& textureNameString, bool isNormalize = true);
 
 Image woodAlbedo;
 Image woodSpecular;
@@ -176,8 +176,18 @@ vec3 getUV(const Image imageStruct, const float& u, const float& v)
 
 
 //Will load texture with given name into the given (global) image struct
-void LoadTexture(Image& imageStruct, const string& textureNameString)
+void LoadTexture(Image& imageStruct, const string& textureNameString, bool isNormalize)
 {
+  float div;
+  if(isNormalize)
+  {
+    div = 255.0f;
+  }
+  else
+  {
+    div = 1.0f;
+  }
+  
   //load wood albedo into vector<unsigned char> woodAlbedo
   std::vector<unsigned char> picoImage;
   unsigned long dimension = TEXTURE_SIZE;
@@ -197,7 +207,7 @@ void LoadTexture(Image& imageStruct, const string& textureNameString)
   {
     for(int c = 0; c < TEXTURE_SIZE; c++)
     {
-      imageStruct.pixels[r][c] = getPixelRGB(picoImage,r,c)/255.0f;
+      imageStruct.pixels[r][c] = getPixelRGB(picoImage,r,c)/div;
     }
   }
 }
@@ -209,7 +219,7 @@ int main( int argc, char* argv[] )
   //Load in textures
   LoadTexture(woodAlbedo, "woodAlbedo.png");
   LoadTexture(woodSpecular,"woodSpecular.png");
-  LoadTexture(woodNormal,"woodNormal.png");
+  LoadTexture(woodNormal,"woodNormal.png",false);
 
   
 
@@ -769,6 +779,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
   //defaults
   //default diffuse is the argument currentReflectance
   float k_s = 0.0f; //default specularity
+  vec4 N = NormaliseNoHomogenous(currentNormal); //default normal
 
 
   //point to shade is p.pos3d  
@@ -794,6 +805,8 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
         int y = floor(v * TEXTURE_SIZE);        
         currentReflectance =  woodAlbedo.pixels[x][y];
         k_s = length(woodSpecular.pixels[x][y]);
+        vec3 mapNormal = woodNormal.pixels[x][y];
+        cout << mapNormal;
       }
     }
     
@@ -801,8 +814,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
 
     //vector from p to light
     vec4 L = NormaliseNoHomogenous(lightPos - p.pos3d);
-    //normal vector
-    vec4 N = NormaliseNoHomogenous(currentNormal);
+    
     //perfect reflection direction 
     vec4 R = NormaliseNoHomogenous(ReflectNoHomogenous(-L,N));
     //vector from p to camera
