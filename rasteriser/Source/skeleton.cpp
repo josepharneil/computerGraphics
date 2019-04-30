@@ -33,7 +33,7 @@ using glm::vec2;
 //============= Global Variables =============//
 bool quit;
 bool isWireframe;
-
+bool showNormalMap;
 
 
 //============= Structures =============//
@@ -209,12 +209,13 @@ int main( int argc, char* argv[] )
   //Load in textures
   LoadTexture(woodAlbedo, "woodAlbedo.png");
   LoadTexture(woodSpecular,"woodSpecular.png");
-  LoadTexture(woodNormal,"woodNormal.png",false);
+  LoadTexture(woodNormal,"normalTest.png",false);
 
   
 
   //Initially, do not quit
   quit = false;
+  showNormalMap = true;
 
 
   //Triangulation testing
@@ -378,6 +379,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 
     currentTangent = vec4(tangentV3.x,tangentV3.y,tangentV3.z,1.0f);
     currentBitangent = vec4(bitangentV3.x,bitangentV3.y,bitangentV3.z,1.0f);
+
     //============= END Tangent Bitangent =============//
 
     //Triangle reflectance/ texture name
@@ -386,7 +388,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos, float& f
 
     //Draw polygon for each triangle
     DrawPolygon( screen, vertices, cameraPos, focalLength, depthBuffer, 
-    lightPos, lightPower, indirectLightPowerPerArea, currentNormal, currentTangent, currentBitangent ,currentReflectance, textureName );
+    lightPos, lightPower, indirectLightPowerPerArea, currentNormal, currentTangent, currentBitangent, currentReflectance, textureName );
   }
 }
 //============= END Draw =============//
@@ -483,6 +485,11 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
     if ( e.key.keysym.scancode == SDL_SCANCODE_N )
     {
       isWireframe = !isWireframe;
+    }
+
+    if (e.key.keysym.scancode == SDL_SCANCODE_G)
+    {
+      showNormalMap = !showNormalMap;
     }
 
     //Quit trigger
@@ -818,21 +825,31 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
       {
         int x = floor(u * TEXTURE_SIZE);
         int y = floor(v * TEXTURE_SIZE);        
-        currentReflectance =  woodAlbedo.pixels[x][y];
+        currentReflectance = woodAlbedo.pixels[x][y];
         k_s = length(woodSpecular.pixels[x][y]);
-        vec3 mapNormal = normalize(woodNormal.pixels[x][y]);
+        
 
+        if (showNormalMap) 
+        {
+          vec3 mapNormal = normalize(woodNormal.pixels[x][y]);
+          vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z));
+          vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
+          vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
 
-        vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z));
-        vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
-        vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
+          //transform the normal from the normal map to be oriented with the surface
+          N = vec4(mapNormal.x * currentBitangentV3.x + mapNormal.y * currentNormalV3.x + mapNormal.z * currentTangentV3.x, 
+                  mapNormal.x * currentBitangentV3.y + mapNormal.y * currentNormalV3.y + mapNormal.z * currentTangentV3.y, 
+                  mapNormal.x * currentBitangentV3.z + mapNormal.y * currentNormalV3.z + mapNormal.z * currentTangentV3.z, 1.0f);
 
-        //transform the normal from the normal map to be oriented with the surface
-        N = vec4(mapNormal.x * currentBitangentV3.x + mapNormal.y * currentNormalV3.x + mapNormal.z * currentTangentV3.x, 
-                 mapNormal.x * currentBitangentV3.y + mapNormal.y * currentNormalV3.y + mapNormal.z * currentTangentV3.y, 
-                 mapNormal.x * currentBitangentV3.z + mapNormal.y * currentNormalV3.z + mapNormal.z * currentTangentV3.z, 1.0f);
+          N = NormaliseNoHomogenous(N);
 
-        N = NormaliseNoHomogenous(N);
+          // cout << "\ntangent: " << currentTangentV3 << "\n";
+          // cout << "bitangent: " << currentBitangentV3 << "\n";
+          // cout << "normal: " << currentNormalV3 << "\n";
+        }
+        
+        
+
 
 
         // cout << mapNormal;
