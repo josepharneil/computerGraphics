@@ -802,6 +802,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
   //default diffuse is the argument currentReflectance
   float k_s = 0.0f; //default specularity
   vec4 N = NormaliseNoHomogenous(currentNormal); //default normal
+  bool isMetallic = false;
 
   //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
@@ -873,7 +874,8 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     //hacky way to make just blue block shiny
     if(currentReflectance == vec3(0.15f, 0.15f, 0.75f ))
     {
-      k_s = 0.15f;
+      k_s = 0.3f;
+      isMetallic = true;
     }
     // if(textureName == "wood")
     // {
@@ -909,7 +911,16 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     //shading = diffuse + specular + ambient {note: specular should not be affected by material color}
     vec3 diffuseShading = k_d * diffuse * currentReflectance;
     vec3 ambientShading = indirectLightPowerPerArea * currentReflectance;
-    vec3 specularShading = k_s * specular * vec3(1,1,1);
+    vec3 specularShading;// = k_s * specular * vec3(1,1,1);
+    if(isMetallic)
+    {
+      specularShading = k_s * specular * currentReflectance;
+    }
+    else
+    {
+      specularShading = k_s * specular * vec3(1,1,1);
+    }
+    
     vec3 shading = diffuseShading + ambientShading + specularShading;
     PutPixelSDL(screen, p.x, p.y, shading);
 
