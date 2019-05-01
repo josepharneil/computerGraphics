@@ -32,7 +32,7 @@ using glm::mat4;
 #define APERTURE 0.0f//use 0.2f
 // #define isAAOn false
 #define FOG_STRENGTH 0.0f//use 0.03f
-#define USE_INPUTS true
+#define USE_INPUTS false
 
 //============= Global Variables =============//
 int timeT;
