@@ -40,7 +40,7 @@ bool quit;
 
 vec4 metaCentreTEMP(-0.0f,-0.0f,-0.3f,1.0f);
 vec4 metaCentreTEMP2(0.15f,-0.0f,-0.3f,1.0f);
-vec4 metaCentreTEMP3(1.0f,-0.0f,0.0f,1.0f);
+vec4 metaCentreTEMP3(0.8f,0.0f,-0.5f,1.0f);
 
 
 //============= Overrides =============//
@@ -490,13 +490,13 @@ int main( int argc, char* argv[] )
     // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
     Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(1.0f,0,0));//vec3(0.0f,0.75f,0.75f));
     Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,1.0f,0.0f));//vec3(1.0f,0.5f,0.5f));
-    // Metaball metaball3 = Metaball(metaCentreTEMP3,0.001f,vec3(0.0f,0.0f,1.0f));
+    Metaball metaball3 = Metaball(metaCentreTEMP3,0.03f,vec3(0.0f,0.2f,0.2f));
     metaballs.push_back( metaball1 );
     metaballs.push_back( metaball2 );
-    // metaballs.push_back( metaball3 );
+    metaballs.push_back( metaball3 );
     originalMetaballs.push_back( metaball1 );
     originalMetaballs.push_back( metaball2 );
-    // originalMetaballs.push_back( metaball3 );
+    originalMetaballs.push_back( metaball3 );
     
     Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight,isFog, metaballs);
 
@@ -918,10 +918,16 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
 
         vec3 colr = vec3(0,0,0);
+        bool isPathTracing = true;
         Intersection metaballIntersection;
         if (StepNTimesToMetaBall(metaballs, direction, colr, metaballIntersection))
         {
           vec3 lighting = DirectLight(metaballIntersection, lightPos, lightColour, triangles, spheres, metaballs);
+
+          if(isPathTracing)
+          {
+            //do pathtracing (use sphere code?)
+          }
           
           // cout << colr << "\n";
           PutPixelSDL(screen, col, row, lighting * colr);
@@ -1417,7 +1423,8 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
 
 //current is the point we want to find lighting for; previous is where we cast a ray from to find this point.
 vec3 PathTracer(Intersection current, vec4& lightPos, 
-                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, bool isSampleDirectLight, bool& isAreaLight, const vector<Sphere>& spheres,const vector<Metaball>& metaballs )
+                        vec3& lightColour, vector<Triangle>& triangles, int depth, vec3 previous, 
+                        bool isSampleDirectLight, bool& isAreaLight, const vector<Sphere>& spheres,const vector<Metaball>& metaballs )
 {
   // float BRDF = 1.0f;
   //============= Russian Roulette =============//
