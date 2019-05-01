@@ -373,8 +373,8 @@ int main( int argc, char* argv[] )
   // int yaw = 20;
 
   //Create light source
-  vec4 lightPos( 0.0f, -0.5f, -0.5f, 1.0f );
-  vec4 originalLightPos( 0.0f, -0.5f, -0.5f, 1.0f );
+  vec4 lightPos( 0.0f, -0.5f, -0.1f, 1.0f );
+  vec4 originalLightPos( 0.0f, -0.5f, -0.1f, 1.0f );
   vec3 lightColour = LIGHT_POWER * vec3( 1.0f, 1.0f, 1.0f );
 
   bool isAAOn = false;
