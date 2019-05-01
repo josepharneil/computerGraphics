@@ -41,6 +41,9 @@ bool quit;
 int sign = 1;
 int sign2 = 1;
 
+bool isNegative = false;
+bool isLighting = false;
+
 vec4 metaCentreTEMP(-0.7f,-0.0f,0.1f,1.0f);
 vec4 metaCentreTEMP2(0.15f,-0.0f,0.1f,1.0f);
 // vec4 metaCentreTEMP3(0.8f,0.0f,-0.5f,1.0f);
@@ -222,7 +225,7 @@ bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& directi
     // cout << result << "\n";
 
     //if result is above threshold, place colour
-    if (result > 1.9f)// || result < -1.0)//1.9 goodish?
+    if (result > 1.9f || result < -1.9f)// || result < -1.0)//1.9 goodish?
     {
       //find closest meta ball
       float min = 9999999999999;
@@ -357,6 +360,9 @@ int main( int argc, char* argv[] )
 
   //Focusing
   float focalSphereRad = 1.7f;
+
+  cout << "Use 1 for negative sphere\nUse 2 for a bit of direct lighting\n";
+
 
   //Initialise camera matrix
   cameraMatrix[0][0] = cos( yaw * PI / 180 );
@@ -512,8 +518,18 @@ int main( int argc, char* argv[] )
 
     originalMetaballs.clear();
     originalMetaballs.reserve( 3 );
+
+    float radius;
+    if(isNegative)
+    {
+      radius = -0.2f;
+    }
+    else
+    {
+      radius = 0.2f;
+    }
     
-    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,0.25f,0.75f),vec3(0.0f,0.0f,0.0f),0.7f,1.0f);//vec3(0.0f,0.75f,0.75f));
+    Metaball metaball1 = Metaball(metaCentreTEMP,radius,vec3(0.0f,0.25f,0.75f),vec3(0.0f,0.0f,0.0f),0.7f,1.0f);//vec3(0.0f,0.75f,0.75f));    
     Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,0.5f,0.5f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);//vec3(1.0f,0.5f,0.5f));
     // Metaball metaball3 = Metaball(metaCentreTEMP3,0.03f,vec3(0.0f,0.2f,0.2f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);
     metaballs.push_back( metaball1 );
@@ -1002,9 +1018,18 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           }
           else
           {
-            vec3 lighting = 2.0f*DirectLight(metaballIntersection, lightPos, lightColour, triangles, spheres, metaballs);
-            // PutPixelSDL(screen, col, row, colr);
-            PutPixelSDL(screen, col, row, colr * lighting); 
+            vec3 finalColour;
+            if(isLighting)
+            {
+              vec3 lighting = DirectLight(metaballIntersection, lightPos, lightColour, triangles, spheres, metaballs);
+              finalColour = colr * 0.85f + colr * lighting * 0.15f;
+            }
+            else
+            {
+              finalColour = colr;
+              // PutPixelSDL(screen, col, row, colr);
+            }
+            PutPixelSDL(screen, col, row, finalColour); 
           }
           
           
@@ -1132,6 +1157,16 @@ void Update(vec4& cameraPos, int& yaw, vec4& lightPos, mat4& cameraMatrix, bool&
   while(SDL_PollEvent(&e))
   {
     if( e.type != SDL_KEYDOWN) {continue;}
+
+    if( e.key.keysym.scancode == SDL_SCANCODE_1 )
+    {
+      isNegative = !isNegative;
+    }
+
+    if( e.key.keysym.scancode == SDL_SCANCODE_2 )
+    {
+      isLighting = !isLighting;
+    }
 
     if(USE_INPUTS)
     {
@@ -1495,7 +1530,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
                         vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres, const vector<Metaball>& metaballs )
 {
   // Light colour is P
-  vec3 P = 1.0f*lightColour;
+  vec3 P = 3.0f*lightColour;
   // Get normal to triangle
   vec4 nNorm;
   if(intersection.triangleIndex !=-1)
