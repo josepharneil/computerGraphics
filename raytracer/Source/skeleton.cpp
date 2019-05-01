@@ -19,8 +19,8 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 150
-#define SCREEN_HEIGHT 150
+#define SCREEN_WIDTH 300
+#define SCREEN_HEIGHT 300
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define RAYDEPTH 10
@@ -40,6 +40,7 @@ bool quit;
 
 vec4 metaCentreTEMP(-0.0f,-0.0f,-0.3f,1.0f);
 vec4 metaCentreTEMP2(0.15f,-0.0f,-0.3f,1.0f);
+vec4 metaCentreTEMP3(1.9f,-0.0f,-0.3f,1.0f);
 
 
 //============= Overrides =============//
@@ -191,12 +192,14 @@ bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& directi
     {
       vec4 metaballCentre = metaballs[i].centre;
 
-      float radiusDistance = DistanceBetween(currentRayPosition,metaballCentre);
+      float rad = metaballs[i].radius;
 
-      metaballArray[i] = radiusDistance;
+      float distanceToCentre = DistanceBetween(currentRayPosition,metaballCentre) / rad;
+
+      metaballArray[i] = distanceToCentre;
 
       // cout << radiusDistance << "\n";
-      result += MetaballFunction(radiusDistance);
+      result += MetaballFunction(distanceToCentre);
     }
     // result /= metaballs.size();
 
@@ -315,7 +318,7 @@ int main( int argc, char* argv[] )
   LoadTestModel( originalTriangles );
 
   //Camera control
-  vec4 cameraPos(0.0f,0.0f,-2.3f,1.0f);
+  vec4 cameraPos(0.0f,0.0f,-2.8f,1.0f);
   // vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   mat4 cameraMatrix;
   int yaw = 0;
@@ -346,8 +349,8 @@ int main( int argc, char* argv[] )
   // int yaw = 20;
 
   //Create light source
-  vec4 lightPos( 0.0f, -0.5f, -0.7f, 1.0f );
-  vec4 originalLightPos( 0.0f, -0.5f, -0.7f, 1.0f );
+  vec4 lightPos( 0.0f, -0.5f, -0.2f, 1.0f );
+  vec4 originalLightPos( 0.0f, -0.5f, -0.2f, 1.0f );
   vec3 lightColour = LIGHT_POWER * vec3( 1.0f, 1.0f, 1.0f );
 
   bool isAAOn = false;
@@ -400,7 +403,7 @@ int main( int argc, char* argv[] )
   // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
   // Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,0.75f,0.75f));
   // Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,0.5f,0.5f));
-  // // Metaball metaball3 = Metaball(metaCentreTEMP3,0.2f,vec3(1.0f,.0f,1.0f));
+  // Metaball metaball3 = Metaball(metaCentreTEMP3,0.2f,vec3(1.0f,0.0f,1.0f));
   // metaballs.push_back( metaball1 );
   // metaballs.push_back( metaball2 );
   // // metaballs.push_back( metaball3 );
@@ -408,7 +411,7 @@ int main( int argc, char* argv[] )
   // originalMetaballs.push_back( metaball2 );
   // originalMetaballs.push_back( metaball3 );
 
-  cout << metaballs[0].color <<"\n";
+  // cout << metaballs[0].color <<"\n";
 
   // Metaball mymetaball;
   // vec4 myoffset;
@@ -468,14 +471,14 @@ int main( int argc, char* argv[] )
     
     // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
     Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,0.75f,0.75f));
-    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(1.0f,0.5f,0.5f));
-    // Metaball metaball3 = Metaball(metaCentreTEMP3,0.2f,vec3(1.0f,.0f,1.0f));
+    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,0.75f,0.75f));//vec3(1.0f,0.5f,0.5f));
+    Metaball metaball3 = Metaball(metaCentreTEMP3,0.01f,vec3(0.0f,0.75f,0.75f));
     metaballs.push_back( metaball1 );
     metaballs.push_back( metaball2 );
-    // metaballs.push_back( metaball3 );
+    metaballs.push_back( metaball3 );
     originalMetaballs.push_back( metaball1 );
     originalMetaballs.push_back( metaball2 );
-    // originalMetaballs.push_back( metaball3 );
+    originalMetaballs.push_back( metaball3 );
     
     Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight,isFog, metaballs);
 
@@ -791,7 +794,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         
 
         //If an intersection occurs
-        if (intersect)
+        if (false)
         {
           // if(closestIntersection.triangleIndex != -1)
           // {
@@ -900,8 +903,10 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         Intersection metaballIntersection;
         if (StepNTimesToMetaBall(metaballs, direction, colr, metaballIntersection))
         {
+          vec3 lighting = DirectLight(metaballIntersection, lightPos, lightColour, triangles, spheres, metaballs);
+          
           // cout << colr << "\n";
-          PutPixelSDL(screen, col, row, colr);
+          PutPixelSDL(screen, col, row, lighting * colr);
         }
         
         // )
@@ -1327,7 +1332,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
                         vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres, const vector<Metaball>& metaballs )
 {
   // Light colour is P
-  vec3 P = lightColour;
+  vec3 P = lightColour*5.0f;
   // Get normal to triangle
   vec4 nNorm;
   if(intersection.triangleIndex !=-1)
@@ -1352,7 +1357,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
   vec4 rNorm = NormaliseNoHomogenous(r);
 
   //Compute power per area B
-  float A = 4.0f * M_PI * ( pow(glm::length(r),2.0f) );
+  float A = 4.0f * M_PI * ( pow(glm::length(r),0.5f) );
 
   vec3 B = vec3(P.x/A,P.y/A,P.z/A);
  
@@ -1385,7 +1390,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
     if ( glm::length(lightIntersection.position - intersection.position) < lightDist )
     {
       //Set to black (i.e., a shadow)
-      D = vec3(0.0f,0.0f,0.0f);
+      // D = vec3(0.0f,0.0f,0.0f);
     }
   }
 
