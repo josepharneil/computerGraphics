@@ -816,34 +816,33 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     {
       float u = p.textureCoordinates.x;
       float v = p.textureCoordinates.y;
+      
+      //floating point error correction
+      if(u<0.0f) {u = 0.0f;}
+      if(u>=1.0f) {u = 0.9999f;}
+      if(v < 0.0f) {v = 0.0f;}
+      if(v >=1.0f) {v = 0.9999f;}
 
-      if(u < 0 || u >= 1 || v < 0 || v >= 1)
-      {
-        u = 0;
-        v = 0;
-      }
+
       //if UV in range
-      else
+      
+      int x = floor(u * TEXTURE_SIZE);
+      int y = floor(v * TEXTURE_SIZE);        
+      currentReflectance = woodAlbedo.pixels[x][y];
+      k_s = length(woodSpecular.pixels[x][y]) * 0.1;
+      
+      if (showNormalMap) 
       {
-        int x = floor(u * TEXTURE_SIZE);
-        int y = floor(v * TEXTURE_SIZE);        
-        currentReflectance = woodAlbedo.pixels[x][y];
-        k_s = length(woodSpecular.pixels[x][y]) * 0.1;
-        
-        if (showNormalMap) 
-        {
-          vec3 normalMapPixels = woodNormal.pixels[x][y];
-          vec3 mapNormal = vec3(2.0f*(normalMapPixels.x/255.0f)-1.0f,2.0f*(normalMapPixels.y/255.0f)-1.0f,2.0f*(normalMapPixels.z/255.0f)-1.0f); //normalise using 2*(color/255) -1
-          vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
-          vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
-          vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
-          mat3 TBN = mat3(currentTangentV3,currentBitangentV3,currentNormalV3);
-          //transform the normal from the normal map to be oriented with the surface using the TBN matrix
-          vec3 NVec3 = TBN * mapNormal;
-          N = vec4(NVec3.x,NVec3.y,NVec3.z,1.0f);
-          N = NormaliseNoHomogenous(N);
-        }
-
+        vec3 normalMapPixels = woodNormal.pixels[x][y]; 
+        vec3 mapNormal = vec3(2.0f*(normalMapPixels.x/255.0f)-1.0f,2.0f*(normalMapPixels.y/255.0f)-1.0f,2.0f*(normalMapPixels.z/255.0f)-1.0f); //normalise using 2*(color/255) -1
+        vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
+        vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
+        vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
+        mat3 TBN = mat3(currentTangentV3,currentBitangentV3,currentNormalV3);
+        //transform the normal from the normal map to be oriented with the surface using the TBN matrix
+        vec3 NVec3 = TBN * mapNormal;
+        N = vec4(NVec3.x,NVec3.y,NVec3.z,1.0f);
+        N = NormaliseNoHomogenous(N);
       }
     }
     

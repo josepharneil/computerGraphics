@@ -65,34 +65,32 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// Room
 
 	float L = 555;			// Length of Cornell Box side.
-	//(left0/rightL,bottom0/topL,front0/backL)
-	vec4 A(L,0,0,1);//left,bottom,front
-	vec4 B(0,0,0,1);//right,bottom,front
-	vec4 C(L,0,L,1);//left,bottom,back
-	vec4 D(0,0,L,1);//right,bottom,back
 
-	vec4 E(L,L,0,1);//left,top,front
-	vec4 F(0,L,0,1);//right,top,front
-	vec4 G(L,L,L,1);//left,top,back
-	vec4 H(0,L,L,1);//right,top,back
+	vec4 A(L,0,0,1);
+	vec4 B(0,0,0,1);
+	vec4 C(L,0,L,1);
+	vec4 D(0,0,L,1);
+
+	vec4 E(L,L,0,1);
+	vec4 F(0,L,0,1);
+	vec4 G(L,L,L,1);
+	vec4 H(0,L,L,1);
 
 	// Floor:
-	triangles.push_back( Triangle( C, B, A, white ) );
-	triangles.push_back( Triangle( C, D, B, white ) );
+	triangles.push_back( Triangle( C, B, A, white, vec2(1,1),vec2(0,0),vec2(1,0), "wood" ) );
+	triangles.push_back( Triangle( C, D, B, white, vec2(1,1),vec2(0,1),vec2(0,0), "wood" ) );
 
 	// Left wall
 	triangles.push_back( Triangle( A, E, C, red, vec2(1,0),vec2(0,0),vec2(1,1), "wood") );
 	triangles.push_back( Triangle( C, E, G, red, vec2(1,1),vec2(0,0),vec2(0,1), "wood") );
-	// triangles.push_back( Triangle( A, E, C, red ));
-	// triangles.push_back( Triangle( C, E, G, red ));
 
 	// Right wall
 	triangles.push_back( Triangle( F, B, D, green, vec2(0,0),vec2(1,1),vec2(1,0), "wood" ) );
 	triangles.push_back( Triangle( H, F, D, green, vec2(0,1),vec2(0,0),vec2(1,0), "wood" ) );
 
 	// Ceiling
-	triangles.push_back( Triangle( E, F, G, white ) );
-	triangles.push_back( Triangle( F, H, G, white ) );
+	triangles.push_back( Triangle( E, F, G, white, vec2(1,0),vec2(0,0),vec2(1,1), "wood" ) );
+	triangles.push_back( Triangle( F, H, G, white, vec2(0,0),vec2(0,1),vec2(1,1), "wood" ) );
 
 	// Back wall
 	triangles.push_back( Triangle( G, D, C, white, vec2(1,1),vec2(0,0),vec2(1,0), "wood" ) );
