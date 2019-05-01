@@ -42,7 +42,7 @@ int sign = 1;
 int sign2 = 1;
 
 bool isNegative = false;
-bool isLighting = false;
+bool isLighting = true;
 
 vec4 metaCentreTEMP(-0.7f,-0.0f,0.1f,1.0f);
 vec4 metaCentreTEMP2(0.15f,-0.0f,0.1f,1.0f);
