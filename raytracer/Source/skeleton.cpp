@@ -40,7 +40,7 @@ bool quit;
 
 vec4 metaCentreTEMP(-0.0f,-0.0f,-0.3f,1.0f);
 vec4 metaCentreTEMP2(0.15f,-0.0f,-0.3f,1.0f);
-vec4 metaCentreTEMP3(1.0f,-0.0f,-0.3f,1.0f);
+vec4 metaCentreTEMP3(1.0f,-0.0f,0.0f,1.0f);
 
 
 //============= Overrides =============//
@@ -177,7 +177,7 @@ float DistanceBetween(const vec4& a, const vec4& b)
 bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& direction, vec3& colour, Intersection& metaballIntersection)
 {
   vec4 currentRayPosition = vec4(0,0,0,1);
-  for(int cast = 0; cast < 1000; cast++)
+  for(int cast = 0; cast < 150; cast++)
   {
     //cast ray 0.1f ahead
     currentRayPosition = currentRayPosition + direction * 0.01f;
@@ -209,7 +209,7 @@ bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& directi
     // cout << result << "\n";
 
     //if result is above threshold, place colour
-    if (result > 1.9f)//1.9 goodish?
+    if (result > 1.9f)// || result < -1.0)//1.9 goodish?
     {
       //find closest meta ball
       float min = 9999999999999;
@@ -336,7 +336,7 @@ int main( int argc, char* argv[] )
   LoadTestModel( originalTriangles );
 
   //Camera control
-  vec4 cameraPos(0.0f,0.0f,-2.5f,1.0f);
+  vec4 cameraPos(0.0f,0.0f,-1.7f,1.0f);
   // vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   mat4 cameraMatrix;
   int yaw = 0;
@@ -367,8 +367,8 @@ int main( int argc, char* argv[] )
   // int yaw = 20;
 
   //Create light source
-  vec4 lightPos( 0.0f, -0.5f, -0.2f, 1.0f );
-  vec4 originalLightPos( 0.0f, -0.5f, -0.2f, 1.0f );
+  vec4 lightPos( 0.0f, -0.5f, -0.5f, 1.0f );
+  vec4 originalLightPos( 0.0f, -0.5f, -0.5f, 1.0f );
   vec3 lightColour = LIGHT_POWER * vec3( 1.0f, 1.0f, 1.0f );
 
   bool isAAOn = false;
@@ -411,10 +411,10 @@ int main( int argc, char* argv[] )
   vector< Metaball> originalMetaballs;
 
   metaballs.clear();
-  metaballs.reserve( 5*2*3 );
+  metaballs.reserve( 3 );
 
   originalMetaballs.clear();
-  originalMetaballs.reserve( 5*2*3 );
+  originalMetaballs.reserve( 3 );
 
   // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
   
@@ -480,10 +480,10 @@ int main( int argc, char* argv[] )
   while( !quit ) //NoQuitMessageSDL() )
   {
     metaballs.clear();
-    metaballs.reserve( 5*2*3 );
+    metaballs.reserve( 3 );
 
     originalMetaballs.clear();
-    originalMetaballs.reserve( 5*2*3 );
+    originalMetaballs.reserve( 3 );
 
     // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
     
