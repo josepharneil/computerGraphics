@@ -103,6 +103,15 @@ Image woodAlbedo;
 Image woodSpecular;
 Image woodNormal;
 
+Image tilesAlbedo;
+Image tilesSpecular;
+Image tilesNormal;
+
+Image metalAlbedo;
+Image metalNormal;
+Image metalSpecular;
+
+
 
 
 #pragma endregion FunctionDefinitions
@@ -210,6 +219,15 @@ int main( int argc, char* argv[] )
   LoadTexture(woodAlbedo, "woodAlbedo.png");
   LoadTexture(woodSpecular,"woodSpecular.png");
   LoadTexture(woodNormal,"woodNormal.png",false);
+
+  LoadTexture(tilesAlbedo, "tilesAlbedo.png");
+  LoadTexture(tilesSpecular,"tilesSpecular.png");
+  LoadTexture(tilesNormal,"tilesNormal.png",false);
+
+  LoadTexture(metalAlbedo, "metalAlbedo.png");
+  LoadTexture(metalSpecular,"metalSpecular.png");
+  LoadTexture(metalNormal,"metalNormal.png",false);
+
 
   
 
@@ -803,6 +821,8 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
   float k_s = 0.0f; //default specularity
   vec4 N = NormaliseNoHomogenous(currentNormal); //default normal
   bool isMetallic = false;
+  //shininess constant - controls size of specular highlight
+  float alpha = 10.0f;
 
   //point to shade is p.pos3d  
   if(p.zinv > depthBuffer[p.y][p.x])
@@ -845,6 +865,75 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
         N = NormaliseNoHomogenous(N);
       }
     }
+    if(textureName == "tiles")
+    {
+      float u = p.textureCoordinates.x;
+      float v = p.textureCoordinates.y;
+      
+      //floating point error correction
+      if(u<0.0f) {u = 0.0f;}
+      if(u>=1.0f) {u = 0.9999f;}
+      if(v < 0.0f) {v = 0.0f;}
+      if(v >=1.0f) {v = 0.9999f;}
+
+
+      //if UV in range
+      
+      int x = floor(u * TEXTURE_SIZE);
+      int y = floor(v * TEXTURE_SIZE);        
+      currentReflectance = tilesAlbedo.pixels[x][y];
+      k_s = length(tilesSpecular.pixels[x][y]) * 0.6f;
+      alpha = 500.0f;
+      
+      if (showNormalMap) 
+      {
+        vec3 normalMapPixels = tilesNormal.pixels[x][y]; 
+        vec3 mapNormal = vec3(2.0f*(normalMapPixels.x/255.0f)-1.0f,2.0f*(normalMapPixels.y/255.0f)-1.0f,2.0f*(normalMapPixels.z/255.0f)-1.0f); //normalise using 2*(color/255) -1
+        vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
+        vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
+        vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
+        mat3 TBN = mat3(currentTangentV3,currentBitangentV3,currentNormalV3);
+        //transform the normal from the normal map to be oriented with the surface using the TBN matrix
+        vec3 NVec3 = TBN * mapNormal;
+        N = vec4(NVec3.x,NVec3.y,NVec3.z,1.0f);
+        N = NormaliseNoHomogenous(N);
+      }
+    }
+    if(textureName == "metal")
+    {
+      float u = p.textureCoordinates.x;
+      float v = p.textureCoordinates.y;
+      
+      //floating point error correction
+      if(u<0.0f) {u = 0.0f;}
+      if(u>=1.0f) {u = 0.9999f;}
+      if(v < 0.0f) {v = 0.0f;}
+      if(v >=1.0f) {v = 0.9999f;}
+
+
+      //if UV in range
+      
+      int x = floor(u * TEXTURE_SIZE);
+      int y = floor(v * TEXTURE_SIZE);        
+      currentReflectance = metalAlbedo.pixels[x][y];
+      k_s = length(metalSpecular.pixels[x][y]) * 0.15f;
+      alpha = 20.0f;
+      isMetallic = true;
+      
+      if (showNormalMap) 
+      {
+        vec3 normalMapPixels = metalNormal.pixels[x][y]; 
+        vec3 mapNormal = vec3(2.0f*(normalMapPixels.x/255.0f)-1.0f,2.0f*(normalMapPixels.y/255.0f)-1.0f,2.0f*(normalMapPixels.z/255.0f)-1.0f); //normalise using 2*(color/255) -1
+        vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
+        vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
+        vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
+        mat3 TBN = mat3(currentTangentV3,currentBitangentV3,currentNormalV3);
+        //transform the normal from the normal map to be oriented with the surface using the TBN matrix
+        vec3 NVec3 = TBN * mapNormal;
+        N = vec4(NVec3.x,NVec3.y,NVec3.z,1.0f);
+        N = NormaliseNoHomogenous(N);
+      }
+    }
     
     //Vectors (all normalised)
 
@@ -867,8 +956,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     }
     //diffuse constant
     float k_d = 1.0f;
-    //shininess constant - controls size of specular highlight
-    float alpha = 10.0f;
+    
     //diffuse falloff constant
     float falloff = 2.0f; //this was 2.0f originally
 
@@ -897,7 +985,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     vec3 specularShading;
     if(isMetallic)
     {
-      specularShading = k_s * specular * currentReflectance;
+      specularShading = (2.0f * k_s * specular * currentReflectance) + (0.5f * k_s * specular * vec3(1,1,1)) ;
     }
     else
     {
