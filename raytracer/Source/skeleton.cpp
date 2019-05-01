@@ -38,8 +38,8 @@ using glm::mat4;
 int timeT;
 bool quit;
 
-vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
-vec4 metaCentreTEMP2(0.15f,-0.8f,-0.7f,1.0f);
+vec4 metaCentreTEMP(-0.0f,-0.0f,-0.3f,1.0f);
+vec4 metaCentreTEMP2(0.15f,-0.0f,-0.3f,1.0f);
 
 
 //============= Overrides =============//
@@ -158,8 +158,9 @@ float MetaballFunction(const float& r)
 {
   // if(r >= 0.707f){return 0;}
   // if(r < 0){return 0;}
+  return 1.0f/r;
 
-  return 1.0f/pow(r,2);//pow(r,4) - pow(r,2) + 0.25f;
+  // return 1.0f/pow(r,2);//pow(r,4) - pow(r,2) + 0.25f;
   // r^4 - r^2 + 0.25
   // return 6*pow(r,5) - 15*pow(r,4) + 10*pow(r,3);
   // 6r^5 - 15r^4 + 10r^3 
@@ -167,17 +168,21 @@ float MetaballFunction(const float& r)
 
 float DistanceBetween(const vec4& a, const vec4& b)
 {
-  return sqrtf(fabs(a.x - b.x) + fabs(a.y - b.y) + fabs(a.z - b.z));
+  // return sqrtf( fabs(a.x - b.x) + fabs(a.y - b.y) + fabs(a.z - b.z) );
+  return pow(a.x - b.x, 2) + pow(a.y - b.y, 2) + pow(a.z - b.z, 2);
+  
 }
 
-bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& direction)
+bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& direction, vec3& colour, Intersection& metaballIntersection)
 {
   vec4 currentRayPosition = vec4(0,0,0,1);
   for(int cast = 0; cast < 1000; cast++)
-  {      
+  {
     //cast ray 0.1f ahead
-    currentRayPosition = currentRayPosition + direction * 0.001f;
+    currentRayPosition = currentRayPosition + direction * 0.01f;
     currentRayPosition.w = 1;
+
+    float metaballArray[metaballs.size()];
 
   
     //get sum of all metaballs evaluated 
@@ -187,15 +192,37 @@ bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& directi
       vec4 metaballCentre = metaballs[i].centre;
 
       float radiusDistance = DistanceBetween(currentRayPosition,metaballCentre);
+
+      metaballArray[i] = radiusDistance;
+
       // cout << radiusDistance << "\n";
       result += MetaballFunction(radiusDistance);
     }
     // result /= metaballs.size();
 
     // cout << result << "\n";
+
     //if result is above threshold, place colour
-    if (result > 0.5f)
+    if (result > 1.9f)//1.9 goodish?
     {
+      //find closest meta ball
+      float min = 9999999999999;
+      for(int m = 0; m < metaballs.size(); m++)
+      {
+        metaballIntersection.position = currentRayPosition;
+        metaballIntersection.distance = sqrtf(DistanceBetween(vec4(0,0,0,1), currentRayPosition));
+        metaballIntersection.sphereIndex = -1;
+        metaballIntersection.triangleIndex = -1;
+        
+        // cout << metaballs[i].color << "\n";
+        if(metaballArray[m] < min)
+        {
+          min = metaballArray[m];
+          colour = metaballs[m].color;
+          metaballIntersection.metaballIndex = m;
+        }
+      }
+
       return true;
     }
   }
@@ -371,15 +398,17 @@ int main( int argc, char* argv[] )
   // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
   
   // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
-  Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,1.0f,0.75f));
-  Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(1.0f,0.0f,1.0f));
-  // Metaball metaball3 = Metaball(metaCentreTEMP3,0.2f,vec3(1.0f,.0f,1.0f));
-  metaballs.push_back( metaball1 );
-  metaballs.push_back( metaball2 );
-  // metaballs.push_back( metaball3 );
-  originalMetaballs.push_back( metaball1 );
-  originalMetaballs.push_back( metaball2 );
+  // Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,0.75f,0.75f));
+  // Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,0.5f,0.5f));
+  // // Metaball metaball3 = Metaball(metaCentreTEMP3,0.2f,vec3(1.0f,.0f,1.0f));
+  // metaballs.push_back( metaball1 );
+  // metaballs.push_back( metaball2 );
+  // // metaballs.push_back( metaball3 );
+  // originalMetaballs.push_back( metaball1 );
+  // originalMetaballs.push_back( metaball2 );
   // originalMetaballs.push_back( metaball3 );
+
+  cout << metaballs[0].color <<"\n";
 
   // Metaball mymetaball;
   // vec4 myoffset;
@@ -438,8 +467,8 @@ int main( int argc, char* argv[] )
     // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
     
     // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
-    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,1.0f,0.75f));
-    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(1.0f,0.0f,1.0f));
+    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,0.75f,0.75f));
+    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(1.0f,0.5f,0.5f));
     // Metaball metaball3 = Metaball(metaCentreTEMP3,0.2f,vec3(1.0f,.0f,1.0f));
     metaballs.push_back( metaball1 );
     metaballs.push_back( metaball2 );
@@ -866,6 +895,17 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
           PutPixelSDL(screen, col, row, currentColour);
         }
 
+
+        vec3 colr = vec3(0,0,0);
+        Intersection metaballIntersection;
+        if (StepNTimesToMetaBall(metaballs, direction, colr, metaballIntersection))
+        {
+          // cout << colr << "\n";
+          PutPixelSDL(screen, col, row, colr);
+        }
+        
+        // )
+
         // bool isSampleDirectLight;
         // if(sampleCount == 1)
         // {
@@ -898,43 +938,43 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
 
           //Average over #samples
           // vec3 currentColour = vec3(screenAccumulator[col][row].x/sampleCount,screenAccumulator[col][row].y/sampleCount,screenAccumulator[col][row].z/sampleCount);
-        Intersection metaballIntersection;
-        bool isMetaballIntersection = ClosestMetaballIntersection(vec4(randX,randY,0.0f,1.0f),direction,metaballs,metaballIntersection);
+        // Intersection metaballIntersection;
+        // bool isMetaballIntersection = ClosestMetaballIntersection(vec4(randX,randY,0.0f,1.0f),direction,metaballs,metaballIntersection);
 
-        if(isMetaballIntersection)
-        {
-          // PutPixelSDL(screen, col, row, metaballs[metaballIntersection.metaballIndex].color);
-          float result = 0.0f;
-          // for(int i = 0; i < metaballs.size(); i++)
-          // {
-            for(int j = 0; j < metaballs.size(); j++)
-            {
-              // vec4 metaballRad = metaballs[i].centre;
+        // if(false)//isMetaballIntersection)
+        // {
+        //   // PutPixelSDL(screen, col, row, metaballs[metaballIntersection.metaballIndex].color);
+        //   float result = 0.0f;
+        //   // for(int i = 0; i < metaballs.size(); i++)
+        //   // {
+        //     for(int j = 0; j < metaballs.size(); j++)
+        //     {
+        //       // vec4 metaballRad = metaballs[i].centre;
 
-              //Get distance between THIS metaball, and all other metaballs
-              // vec3 pos = Vec4ToVec3(metaballIntersection);
-              // - metaballs[j].radius
-              float radiusDistance = DistanceBetween(metaballIntersection.position, metaballs[j].centre - NormaliseNoHomogenous(metaballIntersection.position) * (metaballs[j].radius+0.1f));
+        //       //Get distance between THIS metaball, and all other metaballs
+        //       // vec3 pos = Vec4ToVec3(metaballIntersection);
+        //       // - metaballs[j].radius
+        //       float radiusDistance = DistanceBetween(metaballIntersection.position, metaballs[j].centre - NormaliseNoHomogenous(metaballIntersection.position) * (metaballs[j].radius+0.1f));
 
-              // cout << radiusDistance << "\n";
+        //       // cout << radiusDistance << "\n";
 
-              //Accumlate result
-              result += MetaballFunction(radiusDistance);
-            }
+        //       //Accumlate result
+        //       result += MetaballFunction(radiusDistance);
+        //     }
 
-            // cout << result<< "\n";
-            if(result > 0.48f)
-            {
-              PutPixelSDL(screen, col, row, metaballs[metaballIntersection.metaballIndex].color);
-            }
-          // }
+        //     // cout << result<< "\n";
+        //     if(result > 0.48f)
+        //     {
+        //       PutPixelSDL(screen, col, row, metaballs[metaballIntersection.metaballIndex].color);
+        //     }
+        //   // }
 
-          bool isMetaBool = StepNTimesToMetaBall(metaballs,direction);
-          if(isMetaBool)
-          {
-            PutPixelSDL(screen, col, row, vec3(1,0,0));
-          }
-        }
+        //   // bool isMetaBool = StepNTimesToMetaBall(metaballs,direction);
+        //   // if(isMetaBool)
+        //   // {
+        //     // PutPixelSDL(screen, col, row, vec3(1,0,0));
+        //   // }
+        // }
 
 
 
