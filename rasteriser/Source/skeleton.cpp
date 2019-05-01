@@ -34,6 +34,7 @@ using glm::vec2;
 bool quit;
 bool isWireframe;
 bool showNormalMap;
+bool isFog = false;
 
 
 //============= Structures =============//
@@ -84,6 +85,9 @@ void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float&
 void PixelShader(const Pixel& p, screen* s, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName );
 vec4 NormaliseNoHomogenous(vec4 vector4);
 void CalculateCameraMatrix(vec4& camPos, int& yaw, mat4& camMatrix);
+void FillDepthBuffer(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
+                vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, 
+                vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName );
 
 vector<Triangle> Clip(Triangle& triangle);
 vector<Triangle> Triangulate(vector<Vertex> vertices, const vec3 color);
@@ -94,6 +98,7 @@ void ClipToPlane(vector<Vertex>& inputVertices, vec4 planePoint, vec4 planeNorma
 int decodePNG(std::vector<unsigned char>& out_image, unsigned long& image_width, unsigned long& image_height, const unsigned char* in_png, size_t in_size, bool convert_to_rgba32);
 void loadFile(std::vector<unsigned char>& buffer, const std::string& filename);
 vec3 getPixelRGB(vector<unsigned char> image,int x, int y);
+float GetFogFactor(vec4 position);
 
 vec3 CheckerBoard(const float& x, const float& y);
 void LoadTexture(Image& imageStruct, const string& textureNameString, bool isNormalize = true);
@@ -510,6 +515,11 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
       showNormalMap = !showNormalMap;
     }
 
+    if (e.key.keysym.scancode == SDL_SCANCODE_H)
+    {
+      isFog = !isFog;
+    }
+
     //Quit trigger
     if( e.type == SDL_QUIT )
     {
@@ -706,6 +716,7 @@ void DrawPolygonRows( screen* screen,
       {
         if(pixelsBetween[p].y < SCREEN_HEIGHT && pixelsBetween[p].y >= 0 && pixelsBetween[p].x < SCREEN_WIDTH && pixelsBetween[p].x >=0)
         {
+          FillDepthBuffer(pixelsBetween[p], screen, depthBuffer, currentNormal, currentTangent, currentBitangent, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea, textureName );
           PixelShader(pixelsBetween[p], screen, depthBuffer, currentNormal, currentTangent, currentBitangent, currentReflectance, lightPos, lightPower, indirectLightPowerPerArea, textureName );
         } 
       }
@@ -810,8 +821,19 @@ void FindLine( Pixel a, Pixel b, vector<Pixel>& lineToDraw)
   InterpolatePixel( a, b, lineToDraw );
 }
 
+//fill the depth buffer before callng pixel shader
+void FillDepthBuffer(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
+                vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, 
+                vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName )
+{
+  if(p.zinv > depthBuffer[p.y][p.x])
+  {
+    depthBuffer[p.y][p.x] = p.zinv;
+  }
+}
 
-//implements the phong model
+
+//depth buffer has been prefilled
 void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
                 vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, 
                 vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName )
@@ -825,7 +847,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
   float alpha = 10.0f;
 
   //point to shade is p.pos3d  
-  if(p.zinv > depthBuffer[p.y][p.x])
+  if(p.zinv >= depthBuffer[p.y][p.x])
   {
     //Check for texture name
     if(textureName == "checkerBoard")
@@ -991,13 +1013,36 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     {
       specularShading = k_s * specular * vec3(1,1,1);
     }
+
+
+    float fogAmount = 1.0f;
+    if(isFog)
+    {
+      fogAmount = GetFogFactor(p.pos3d);
+    }
+    //cout << fogAmount << "\n";
     
     vec3 shading = diffuseShading + ambientShading + specularShading;
-    PutPixelSDL(screen, p.x, p.y, shading);
+    vec3 fogColor = vec3(0.5f,0.5f,0.5f);
+    vec3 shadingWithFog = ((1-fogAmount) * fogColor) + (fogAmount * shading);
+    PutPixelSDL(screen, p.x, p.y, shadingWithFog);
 
-    depthBuffer[p.y][p.x] = p.zinv;
+    //depthBuffer[p.y][p.x] = p.zinv;
 
   }
+}
+
+//exponential squared fog
+float GetFogFactor(vec4 position)
+{
+  float density = 0.5f;
+  float distance = length(vec3(position.x,position.y,position.z));
+  float f = exp(-pow((density * distance),2));
+
+  //clamp to 0,1
+  if(f < 0) {f = 0.0f;}
+  if(f > 1) {f = 1.0f;}
+  return f;
 }
 
 //Helpful Functions
