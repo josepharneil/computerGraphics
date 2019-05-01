@@ -19,7 +19,7 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 400
+#define SCREEN_WIDTH 400 
 #define SCREEN_HEIGHT 400
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
@@ -38,9 +38,10 @@ using glm::mat4;
 int timeT;
 bool quit;
 
-vec4 metaCentreTEMP(-0.7f,-0.0f,-0.3f,1.0f);
-vec4 metaCentreTEMP2(0.15f,-0.0f,-0.3f,1.0f);
-vec4 metaCentreTEMP3(0.8f,0.0f,-0.5f,1.0f);
+vec4 metaCentreTEMP(-0.7f,-0.0f,0.1f,1.0f);
+vec4 metaCentreTEMP2(0.15f,-0.0f,0.1f,1.0f);
+// vec4 metaCentreTEMP3(0.8f,0.0f,-0.5f,1.0f);
+vec4 metaCentreTEMP3(0.45f,-0.55f, 0.1f,1.0f);
 
 
 //============= Overrides =============//
@@ -341,7 +342,7 @@ int main( int argc, char* argv[] )
   // originalTriangles.clear();
 
   //Camera control
-  vec4 cameraPos(0.0f,0.0f,-1.7f,1.0f);
+  vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   // vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   mat4 cameraMatrix;
   int yaw = 0;
@@ -378,9 +379,9 @@ int main( int argc, char* argv[] )
 
   bool isAAOn = false;
 
-  bool isAreaLight = false;
+  bool isAreaLight = true;
   
-  bool isFog = true;
+  bool isFog = false;
 
   
 
@@ -407,7 +408,7 @@ int main( int argc, char* argv[] )
   Sphere mySphere = Sphere(centreTEMP,0.1f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,1.0f);
   Sphere mySphere2 = Sphere(centreTEMP2,0.1f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,2.42f);
   spheres.push_back( mySphere );
-  spheres.push_back( mySphere2 );
+  spheres.push_back( mySphere2 ); 
   originalSpheres.push_back( mySphere );
   originalSpheres.push_back( mySphere2 );
 
@@ -424,6 +425,16 @@ int main( int argc, char* argv[] )
 
   originalMetaballs.clear();
   originalMetaballs.reserve( 3 );
+
+  Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(1.0f,0,0),vec3(0.0f,0.0f,0.0f),0.7f,1.0f);//vec3(0.0f,0.75f,0.75f));
+  Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,1.0f,0.0f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);//vec3(1.0f,0.5f,0.5f));
+  Metaball metaball3 = Metaball(metaCentreTEMP3,0.03f,vec3(0.0f,0.2f,0.2f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);
+  metaballs.push_back( metaball1 );
+  metaballs.push_back( metaball2 );
+  metaballs.push_back( metaball3 );
+  originalMetaballs.push_back( metaball1 );
+  originalMetaballs.push_back( metaball2 );
+  originalMetaballs.push_back( metaball3 ); 
 
   // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
   
@@ -488,24 +499,21 @@ int main( int argc, char* argv[] )
   //Update and draw
   while( !quit ) //NoQuitMessageSDL() )
   {
-    metaballs.clear();
-    metaballs.reserve( 3 );
+    // metaballs.clear();
+    // metaballs.reserve( 3 );
 
-    originalMetaballs.clear();
-    originalMetaballs.reserve( 3 );
-
-    // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
+    // originalMetaballs.clear();
+    // originalMetaballs.reserve( 3 );
     
-    // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
-    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(1.0f,0,0),vec3(0.0f,0.0f,0.0f),0.7f,1.0f);//vec3(0.0f,0.75f,0.75f));
-    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,1.0f,0.0f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);//vec3(1.0f,0.5f,0.5f));
-    Metaball metaball3 = Metaball(metaCentreTEMP3,0.03f,vec3(0.0f,0.2f,0.2f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);
-    metaballs.push_back( metaball1 );
-    metaballs.push_back( metaball2 );
-    metaballs.push_back( metaball3 );
-    originalMetaballs.push_back( metaball1 );
-    originalMetaballs.push_back( metaball2 );
-    originalMetaballs.push_back( metaball3 );
+    // Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(1.0f,0,0),vec3(0.0f,0.0f,0.0f),0.7f,1.0f);//vec3(0.0f,0.75f,0.75f));
+    // Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,1.0f,0.0f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);//vec3(1.0f,0.5f,0.5f));
+    // Metaball metaball3 = Metaball(metaCentreTEMP3,0.03f,vec3(0.0f,0.2f,0.2f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);
+    // metaballs.push_back( metaball1 );
+    // metaballs.push_back( metaball2 );
+    // metaballs.push_back( metaball3 );
+    // originalMetaballs.push_back( metaball1 );
+    // originalMetaballs.push_back( metaball2 );
+    // originalMetaballs.push_back( metaball3 );
     
     Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight,isFog, metaballs);
 
