@@ -19,8 +19,8 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 200
-#define SCREEN_HEIGHT 200
+#define SCREEN_WIDTH 400
+#define SCREEN_HEIGHT 400
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define RAYDEPTH 10
@@ -38,7 +38,7 @@ using glm::mat4;
 int timeT;
 bool quit;
 
-vec4 metaCentreTEMP(-0.0f,-0.0f,-0.3f,1.0f);
+vec4 metaCentreTEMP(-0.7f,-0.0f,-0.3f,1.0f);
 vec4 metaCentreTEMP2(0.15f,-0.0f,-0.3f,1.0f);
 vec4 metaCentreTEMP3(0.8f,0.0f,-0.5f,1.0f);
 
@@ -117,9 +117,12 @@ class Metaball
     vec4 centre;
     float radius;
     vec3 color;
+    vec3 emissive;
+    float smoothness;
+    float refractiveIndex;
 
-  Metaball( vec4 centre, float radius, vec3 color )
-    : centre(centre), radius(radius), color(color){}
+  Metaball( vec4 centre, float radius, vec3 color, vec3 emissive, float smoothness, float refractiveIndex )
+    : centre(centre), radius(radius), color(color), emissive(emissive), smoothness(smoothness), refractiveIndex(refractiveIndex){}
 };
 
 
@@ -177,7 +180,7 @@ float DistanceBetween(const vec4& a, const vec4& b)
 bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& direction, vec3& colour, Intersection& metaballIntersection)
 {
   vec4 currentRayPosition = vec4(0,0,0,1);
-  for(int cast = 0; cast < 150; cast++)
+  for(int cast = 0; cast < 300; cast++)
   {
     //cast ray 0.1f ahead
     currentRayPosition = currentRayPosition + direction * 0.01f;
@@ -250,7 +253,7 @@ bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& directi
   return false;
 }
 
-
+//unused rightnow
 bool ClosestMetaballIntersection(vec4 start,vec4 dir,const vector<Metaball>& metaballs,Intersection &closestIntersection)
 {
   start = start + 1e-4f * dir;
@@ -331,9 +334,11 @@ int main( int argc, char* argv[] )
   //Instantiate vector of triangles
   vector<Triangle> triangles;
   LoadTestModel( triangles );
+  // triangles.clear();
 
   vector<Triangle> originalTriangles;
   LoadTestModel( originalTriangles );
+  // originalTriangles.clear();
 
   //Camera control
   vec4 cameraPos(0.0f,0.0f,-1.7f,1.0f);
@@ -405,6 +410,10 @@ int main( int argc, char* argv[] )
   spheres.push_back( mySphere2 );
   originalSpheres.push_back( mySphere );
   originalSpheres.push_back( mySphere2 );
+
+
+  // spheres.clear();
+  // originalSpheres.clear();  
 
   //============= CreateMetaballs =============//
   vector<Metaball> metaballs;
@@ -488,9 +497,9 @@ int main( int argc, char* argv[] )
     // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
     
     // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
-    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(1.0f,0,0));//vec3(0.0f,0.75f,0.75f));
-    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,1.0f,0.0f));//vec3(1.0f,0.5f,0.5f));
-    Metaball metaball3 = Metaball(metaCentreTEMP3,0.03f,vec3(0.0f,0.2f,0.2f));
+    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(1.0f,0,0),vec3(0.0f,0.0f,0.0f),0.7f,1.0f);//vec3(0.0f,0.75f,0.75f));
+    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,1.0f,0.0f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);//vec3(1.0f,0.5f,0.5f));
+    Metaball metaball3 = Metaball(metaCentreTEMP3,0.03f,vec3(0.0f,0.2f,0.2f),vec3(0.0f,0.0f,0.0f),0.0f,1.0f);
     metaballs.push_back( metaball1 );
     metaballs.push_back( metaball2 );
     metaballs.push_back( metaball3 );
@@ -812,7 +821,7 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         
 
         //If an intersection occurs
-        if (false)
+        if (intersect)
         {
           // if(closestIntersection.triangleIndex != -1)
           // {
@@ -917,20 +926,42 @@ void Draw(screen* screen, vector<Triangle>& triangles, vec4& cameraPos,
         }
 
 
+        bool isSampleDirectLight;
+        if(sampleCount == 1)
+        {
+          isSampleDirectLight = true;
+        }
+        else
+        {
+          isSampleDirectLight = false;
+        }
+
         vec3 colr = vec3(0,0,0);
         bool isPathTracing = true;
         Intersection metaballIntersection;
         if (StepNTimesToMetaBall(metaballs, direction, colr, metaballIntersection))
         {
-          vec3 lighting = DirectLight(metaballIntersection, lightPos, lightColour, triangles, spheres, metaballs);
-
           if(isPathTracing)
           {
+            vec3 lighting = PathTracer(metaballIntersection, lightPos, lightColour, triangles, 0, vec3(0,0,0), isSampleDirectLight, isAreaLight, spheres, metaballs);
             //do pathtracing (use sphere code?)
+            screenAccumulator[col][row] += lighting;
+
+            //Average over #samples
+            vec3 currentColour = vec3(screenAccumulator[col][row].x/sampleCount,screenAccumulator[col][row].y/sampleCount,screenAccumulator[col][row].z/sampleCount);
+
+            //set to colour of that triangle
+            PutPixelSDL(screen, col, row, currentColour * colr);
+          }
+          else
+          {
+            vec3 lighting = DirectLight(metaballIntersection, lightPos, lightColour, triangles, spheres, metaballs);
+            PutPixelSDL(screen, col, row, lighting * colr);
           }
           
+          
           // cout << colr << "\n";
-          PutPixelSDL(screen, col, row, lighting * colr);
+          
         }
         
         // )
@@ -1345,6 +1376,66 @@ bool ClosestIntersection(
     result = true;
   }
 
+  //============= Metaballs =============//
+  if(false)
+  {
+    //For each sphere
+    for(int i = 0; i < metaballs.size(); i++)
+    {
+      // cout << spheres[i].centre;
+      float t0,t1;
+      vec4 L = metaballs[i].centre - start;
+      // if (abs(dir.x) < 0.01f && abs(dir.y) < 0.01f)
+        // cout << spheres[i].centre << " " << start << " " << dir << endl;
+      float tca = glm::dot(L,dir);
+      // cout << glm::dot(dir, dir) << "\n";
+      if(tca < 0.0f)
+      {
+        continue;
+      }
+      float d2 = glm::dot(L,L) - (tca * tca); 
+      
+      // cout << d2<< "cont\n";
+      if (d2 > (metaballs[i].radius * metaballs[i].radius))
+      {
+        continue;
+      }
+      //cout << (tca * tca) << "\n";
+      float thc = sqrt((metaballs[i].radius* metaballs[i].radius) - d2); 
+      t0 = tca - thc; 
+      t1 = tca + thc; 
+
+      if (t0 > t1) 
+      {
+        std::swap(t0, t1);
+      }
+
+      if (t0 < 0.0f)
+      { 
+        t0 = t1; // if t0 is negative, let's use t1 instead 
+        if (t0 < 0.0f) 
+        {
+          continue;
+        } // both t0 and t1 are negative 
+      }
+
+      //If get to this point then an intersection has occured.
+      float t = t0;
+      if (t < minDist)
+      {
+          //cout<<"sphere found" << "\n";
+          closestIntersection.position = vec4(start.x+t*dir.x, start.y+t*dir.y, start.z+t*dir.z, 1);
+          closestIntersection.distance = t;
+          closestIntersection.sphereIndex = -1;
+          closestIntersection.triangleIndex = -1;
+          closestIntersection.metaballIndex = i;
+
+          // cout << closestIntersection.distance << "\n";
+          minDist = t;
+      }
+      result = true;
+    }
+  }
   return result;
 }
 
@@ -1356,7 +1447,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
                         vec3& lightColour, vector<Triangle>& triangles,const vector<Sphere>& spheres, const vector<Metaball>& metaballs )
 {
   // Light colour is P
-  vec3 P = lightColour*5.0f;
+  vec3 P = lightColour;
   // Get normal to triangle
   vec4 nNorm;
   if(intersection.triangleIndex !=-1)
@@ -1414,7 +1505,7 @@ vec3 DirectLight( Intersection& intersection, vec4& lightPos,
     if ( glm::length(lightIntersection.position - intersection.position) < lightDist )
     {
       //Set to black (i.e., a shadow)
-      // D = vec3(0.0f,0.0f,0.0f);
+      D = vec3(0.0f,0.0f,0.0f);
     }
   }
 
@@ -2051,6 +2142,315 @@ vec3 PathTracer(Intersection current, vec4& lightPos,
   #pragma endregion SPHERES
 
 
+
+  #pragma region METABALLS
+  if(current.metaballIndex != -1)
+  {
+    //============= Smoothness/Mirror =============//
+    //If there is any smoothness (for reflectance)
+    if(metaballs[current.metaballIndex].smoothness == 1.0f && metaballs[current.metaballIndex].refractiveIndex == 1.0f)
+    {
+      //Find reflected ray from indidence ray and normal
+      vec3 incidentRay = Vec4ToVec3(current.position) - previous;
+      vec4 normalVec4 = NormaliseNoHomogenous(current.position - metaballs[current.metaballIndex].centre);
+      vec3 normalVec3 = Vec4ToVec3(normalVec4);
+      vec3 incidentNorm = normalize(incidentRay);
+      vec3 reflectedRay = Reflect(incidentNorm, normalVec3);
+      vec4 reflectedRayV4 = Vec3ToHomogenous(reflectedRay);
+
+      //Find the next intersection of the reflected ray
+      Intersection nextIntersection;
+      bool isIntersection = ClosestIntersection(current.position,reflectedRayV4,triangles,nextIntersection,spheres,metaballs);
+
+      //If there is an intersection
+      if(isIntersection)
+      {
+        //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
+        result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs));// * metaballs[current.metaballIndex].color);
+      }
+      else//If there is no intersection, don't recurse anymore 
+      {
+        //(effectively the reflected ray shoots into empty space)
+        // result += vec3(0.0f,0.0f,0.0f);
+      }
+
+      //If we want the mirror itself to have shadows, colour etc.
+      //Then backtrace light from the mirror surface
+      // result += (DirectLight( current, lightPos, lightColour, triangles ) * triangles[current.triangleIndex].color);
+      
+    }
+    //============= End Smoothness =============//
+
+    bool castSpecularRay = false;
+    //============= Refraction =============//
+    if(metaballs[current.metaballIndex].refractiveIndex != 1.0f)
+    {
+      //Random number from 0->1
+      // float randNum = ((float) rand() / (RAND_MAX));
+
+      // if(randNum >= 0.8)
+      // if()
+      // if(false)
+      // {
+        // castSpecularRay = true;
+        // cout << randNum << '\n';
+      // }
+      // else
+      // {
+        //Find refracted ray from indidence ray and normal
+        vec3 incidentRay = Vec4ToVec3(current.position) - previous;
+        vec4 normalVec4 = NormaliseNoHomogenous(current.position - metaballs[current.metaballIndex].centre);
+        vec3 normalVec3 = Vec4ToVec3(normalVec4);
+        vec3 incidentNorm = normalize(incidentRay);
+
+        vec3 refractedRay;// = Refract(incidentNorm, normalVec3,metaballs[current.metaballIndex].refractiveIndex);
+        float randNum = ((float) rand() / (RAND_MAX));
+        if(randNum < 0.9)
+        {
+          refractedRay = Refract(incidentNorm, normalVec3,metaballs[current.metaballIndex].refractiveIndex);
+        }
+        else
+        {
+          refractedRay = Reflect(incidentNorm, normalVec3);//,metaballs[current.metaballIndex].refractiveIndex);
+        }
+        
+        // vec3 refractedRay;// = Refract(incidentNorm, normalVec3,metaballs[current.metaballIndex].refractiveIndex);
+        vec4 refractedRayV4 = Vec3ToHomogenous(refractedRay);
+
+        //Find the next intersection of the refracted ray
+        Intersection nextIntersection;
+        //bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres);
+        bool isIntersection = ClosestIntersection(current.position,refractedRayV4,triangles,nextIntersection,spheres,metaballs);
+
+        //If there is an intersection
+        if(isIntersection)
+        {
+          result += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs));// * spheres[current.metaballIndex].color);
+          // return result;
+        }
+        else//If there is no intersection, don't recurse anymore 
+        {
+          
+        }
+      // }
+    }
+
+    //============= End Refraction =============//
+
+    //============= Specularity =============//
+    bool castDiffuseRay = false;
+    
+
+    if(metaballs[current.metaballIndex].smoothness < 1.0f && metaballs[current.metaballIndex].smoothness > 0.0f && metaballs[current.metaballIndex].refractiveIndex == 1.0f)
+    {
+      //if 0.6, 60% chance of specular ray being cast, 40% of diffuse
+      float smoothness = metaballs[current.metaballIndex].smoothness;
+
+      //Random number from 0->1
+      float randNum = ((float) rand() / (RAND_MAX));
+
+      if(randNum <= smoothness)//do spec
+      {
+        //Cast a specular ray, not a diffuse
+        // castDiffuseRay = true;
+        castSpecularRay = true;
+
+        //============= Random Specular Sample =============//
+        //Sample within specular radius
+        float specularSampleRadius = 1.0f-smoothness;//0.2f;
+        float randXOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+        float randZOffset = ((((float) rand() / (RAND_MAX))*specularSampleRadius*2.0f)-specularSampleRadius);
+        vec3 localDirectionOffset = vec3(randXOffset,0,randZOffset);
+
+        //Create local coordinate system of current triangle
+        vec4 normalVec4 = NormaliseNoHomogenous(current.position - metaballs[current.metaballIndex].centre);
+        vec3 normal = Vec4ToVec3(normalVec4);
+        vec3 Nt;
+        vec3 Nb;
+        CreateCoordinateSystem(normal,Nt,Nb);
+
+        //convert to local offset to global coordinates
+        vec3 globalDirectionOffset = vec3(localDirectionOffset.x * Nb.x + localDirectionOffset.y * normal.x + localDirectionOffset.z * Nt.x, 
+                                          localDirectionOffset.x * Nb.y + localDirectionOffset.y * normal.y + localDirectionOffset.z * Nt.y, 
+                                          localDirectionOffset.x * Nb.z + localDirectionOffset.y * normal.z + localDirectionOffset.z * Nt.z);
+
+        //============= Reflected Ray =============//
+        //Find reflected ray from indidence ray and normal
+        vec3 incidentRay = Vec4ToVec3(current.position) - previous;
+        vec3 normalVec3 = normal;
+        vec3 incidentNorm = normalize(incidentRay);
+        vec3 reflectedRay = Reflect(incidentNorm, normalVec3);
+        reflectedRay = normalize(reflectedRay);
+
+        //Add offset to reflected ray
+        vec3 specularRayVec3 = reflectedRay + globalDirectionOffset;
+        vec4 specularRay = Vec3ToHomogenous(specularRayVec3);
+
+
+        //============= Cast Ray/ Closest Intersection =============//
+        //Cast ray
+        Intersection nextIntersection;
+        bool isIntersection = ClosestIntersection(current.position,specularRay,triangles,nextIntersection,spheres,metaballs);
+
+        //If there is an intersection
+        if(isIntersection)
+        {
+          // vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+          // float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+          // BRDF = 1.0f;
+
+          //Add (slight attenuated) directlight from subsequent reflections, taking mirror colour into account
+          result += (0.8f * PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs));// * metaballs[current.metaballIndex].color);
+        }
+        else//If there is no intersection, don't recurse anymore 
+        {
+          //(effectively the reflected ray shoots into empty space)
+          // result += vec3(0.0f,0.0f,0.0f);
+        }
+      }
+      else//do diffuse
+      {
+        castDiffuseRay = true;
+      }
+    }
+    //=============End Specularity =============//
+
+
+
+    //============= Diffuse =============//
+    //If the surface is diffuse (no smoothness)
+    if(metaballs[current.metaballIndex].smoothness == 0.0f && metaballs[current.metaballIndex].refractiveIndex == 1.0f)// || castDiffuseRay)
+    {
+      //indirectlight comes from sampling
+      vec3 indirectLight;
+
+      //Find local coordinate system at the intersection
+      vec4 normalVec4 = NormaliseNoHomogenous(current.position - metaballs[current.metaballIndex].centre);
+      vec3 normal = Vec4ToVec3(normalVec4);
+      vec3 Nt;
+      vec3 Nb;
+      CreateCoordinateSystem(normal,Nt,Nb);
+
+      float PDF = 1.0f/(2.0f*PI);
+
+
+      //Sample two random numbers from 0->1
+      // srand(time( NULL ));
+      float rand1 = ((float) rand() / (RAND_MAX));
+      float rand2 = ((float) rand() / (RAND_MAX));
+
+      //Local hemispherical sampling
+      vec3 LocalSampleDir = UniformSampleHemisphere(rand1,rand2);
+
+      //Transform to global
+      vec4 WorldSampleDir = vec4(LocalSampleDir.x * Nb.x + LocalSampleDir.y * normal.x + LocalSampleDir.z * Nt.x, 
+                                LocalSampleDir.x * Nb.y + LocalSampleDir.y * normal.y + LocalSampleDir.z * Nt.y, 
+                                LocalSampleDir.x * Nb.z + LocalSampleDir.y * normal.z + LocalSampleDir.z * Nt.z,1.0f);
+      
+      //"Cast" ray, ie., find ClosestIntersection
+      Intersection nextIntersection;
+      bool isIntersect = ClosestIntersection(current.position,WorldSampleDir,triangles,nextIntersection,spheres,metaballs);
+
+      //If there is an interesction, recurse at +1 depth
+      if(isIntersect)
+      {
+        // float cosThrefractiveIndexRatio = 2.0f * PI * rand2;
+        // indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position)) * (cosThrefractiveIndexRatio));
+
+        float cosThrefractiveIndexRatio = rand1;
+        indirectLight += (PathTracer(nextIntersection,lightPos,lightColour,triangles,depth,Vec4ToVec3(current.position),true,isAreaLight,spheres,metaballs)*cosThrefractiveIndexRatio*0.5f); //0.5f is the attenuation factor
+      }
+      else//If there is no intersection, do nothing
+      {
+        //do nothing
+      }
+
+      //Div. indirect light by pdf
+      indirectLight = (indirectLight/PDF);
+
+
+      // Backtrace light from the (non-reflective) surface
+      result += (indirectLight);// * metaballs[current.metaballIndex].color;
+    }
+    //============= End Diffuse =============//
+
+
+
+    //============= Emission =============//
+    result += metaballs[current.metaballIndex].emissive;
+    //============= End Emission =============//
+
+    //Direct lighting
+    //============= Direct Lighting =============//
+    if(metaballs[current.metaballIndex].refractiveIndex == 1.0f)// || castSpecularRay)
+    {    
+      //In all cases, we sample the light (at maximum importance)
+      if(isAreaLight)//arealight
+      {
+        //if we're casting a specular ray
+        if(castSpecularRay)
+        {
+          //Find reflected ray
+          vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
+          vec3 incidentNorm = normalize(incidentRay);
+          vec4 normalVec4 = NormaliseNoHomogenous(current.position - metaballs[current.metaballIndex].centre);
+          vec3 normalVec3 = Vec4ToVec3(normalVec4);
+          vec3 reflectedRay = normalize(Reflect(incidentNorm, normalVec3));
+
+          //Find view direction
+          vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+
+          //Compute direct light
+          float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+
+          // result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres, metaballs ) * metaballs[current.metaballIndex].color) * BRDF);
+          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres, metaballs ) * BRDF));
+        }
+        else //if we are casting a diffuse ray
+        {
+          
+          result += ( (AreaLightSample( current, lightPos, lightColour, triangles, spheres, metaballs ) ));// * metaballs[current.metaballIndex].color));
+
+        }
+
+        
+      }
+      else//pointlight
+      {
+        //if we're casting a specular ray
+        if(castSpecularRay)
+        {
+          //Find reflected ray
+          vec3 incidentRay = Vec4ToVec3(lightPos) - Vec4ToVec3(current.position);
+          vec3 incidentNorm = normalize(incidentRay);
+          vec4 normalVec4 = NormaliseNoHomogenous(current.position - metaballs[current.metaballIndex].centre);
+          vec3 normalVec3 = Vec4ToVec3(normalVec4);
+          vec3 reflectedRay = normalize(Reflect(incidentNorm, normalVec3));
+
+          //Find view direction
+          vec3 viewDirection = normalize(previous - Vec4ToVec3(current.position));
+
+          //Compute direct light
+          float BRDF = pow(abs(glm::dot(viewDirection,reflectedRay)),50.0f);
+
+          // result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres,metaballs ) * metaballs[current.metaballIndex].color)) * BRDF   );
+          result += ( ((DirectLight( current, lightPos, lightColour, triangles,spheres,metaballs ) ) * BRDF   ));
+        }
+        else  //if we are casting a diffuse ray
+        {
+          
+          // result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres,metaballs ) * metaballs[current.metaballIndex].color));
+          result += ( (DirectLight( current, lightPos, lightColour, triangles,spheres,metaballs )));
+
+        }
+      }
+    }
+    //============= End Direct Lighting =============//
+  }
+
+
+  #pragma endregion METABALLS
+
   //Return result
   return result;
 }
@@ -2117,9 +2517,9 @@ vec3 AreaLightSample( Intersection& intersection, vec4& lightPos,
     // Get normal to triangle
     nNorm = NormaliseNoHomogenous(triangles[intersection.triangleIndex].normal);
   }
-  else if(intersection.sphereIndex != -1)
+  else if(intersection.metaballIndex != -1)
   {
-    nNorm = NormaliseNoHomogenous(intersection.position - spheres[intersection.sphereIndex].centre);
+    nNorm = NormaliseNoHomogenous(intersection.position - spheres[intersection.metaballIndex].centre);
   }
 
   // r is vector from intersection point to light source
