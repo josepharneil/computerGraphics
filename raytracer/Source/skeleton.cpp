@@ -19,8 +19,8 @@ using glm::mat3;
 using glm::vec4;
 using glm::mat4;
 
-#define SCREEN_WIDTH 300
-#define SCREEN_HEIGHT 300
+#define SCREEN_WIDTH 200
+#define SCREEN_HEIGHT 200
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
 #define RAYDEPTH 10
@@ -40,7 +40,7 @@ bool quit;
 
 vec4 metaCentreTEMP(-0.0f,-0.0f,-0.3f,1.0f);
 vec4 metaCentreTEMP2(0.15f,-0.0f,-0.3f,1.0f);
-vec4 metaCentreTEMP3(1.9f,-0.0f,-0.3f,1.0f);
+vec4 metaCentreTEMP3(1.0f,-0.0f,-0.3f,1.0f);
 
 
 //============= Overrides =============//
@@ -183,7 +183,9 @@ bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& directi
     currentRayPosition = currentRayPosition + direction * 0.01f;
     currentRayPosition.w = 1;
 
-    float metaballArray[metaballs.size()];
+    vector<float> metaballDistVector; //[metaballs.size()];
+    metaballDistVector.clear();
+    float metaballDistTotal = 0.0f;
 
   
     //get sum of all metaballs evaluated 
@@ -196,7 +198,8 @@ bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& directi
 
       float distanceToCentre = DistanceBetween(currentRayPosition,metaballCentre) / rad;
 
-      metaballArray[i] = distanceToCentre;
+      metaballDistVector.push_back(distanceToCentre);
+      metaballDistTotal += distanceToCentre;
 
       // cout << radiusDistance << "\n";
       result += MetaballFunction(distanceToCentre);
@@ -210,21 +213,36 @@ bool StepNTimesToMetaBall(const vector<Metaball>& metaballs, const vec4& directi
     {
       //find closest meta ball
       float min = 9999999999999;
+      metaballIntersection.position = currentRayPosition;
+      metaballIntersection.sphereIndex = -1;
+      metaballIntersection.triangleIndex = -1;
+      metaballIntersection.distance = sqrtf(DistanceBetween(vec4(0,0,0,1), currentRayPosition));
+
+      // cout << metaballDistVector.size() << "\n";
+
+      // cout << metaballDistVector.size() << "\n";
+
       for(int m = 0; m < metaballs.size(); m++)
       {
-        metaballIntersection.position = currentRayPosition;
-        metaballIntersection.distance = sqrtf(DistanceBetween(vec4(0,0,0,1), currentRayPosition));
-        metaballIntersection.sphereIndex = -1;
-        metaballIntersection.triangleIndex = -1;
-        
-        // cout << metaballs[i].color << "\n";
-        if(metaballArray[m] < min)
+        //Find closest meta ball and say THAT is the intersected index meta ball
+        if(metaballDistVector[m] < min)
         {
-          min = metaballArray[m];
-          colour = metaballs[m].color;
+          min = metaballDistVector[m];
+          // colour = metaballs[m].color;
           metaballIntersection.metaballIndex = m;
         }
+
+        metaballDistVector[m] /= metaballDistTotal;
+
+
+        //Average the colour
+        // cout << metaballDistVector[m] << "\n";
+        colour += metaballDistVector[m] * metaballs[m].color;
+
+
       }
+
+      metaballDistVector.clear();
 
       return true;
     }
@@ -318,7 +336,7 @@ int main( int argc, char* argv[] )
   LoadTestModel( originalTriangles );
 
   //Camera control
-  vec4 cameraPos(0.0f,0.0f,-2.8f,1.0f);
+  vec4 cameraPos(0.0f,0.0f,-2.5f,1.0f);
   // vec4 cameraPos(0.0f,0.0f,-1.8f,1.0f);
   mat4 cameraMatrix;
   int yaw = 0;
@@ -470,15 +488,15 @@ int main( int argc, char* argv[] )
     // vec4 metaCentreTEMP(-0.0f,-0.8f,-0.7f,1.0f);
     
     // vec4 metaCentreTEMP3(0.40f,-0.8f,-0.7f,1.0f);
-    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(0.0f,0.75f,0.75f));
-    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,0.75f,0.75f));//vec3(1.0f,0.5f,0.5f));
-    Metaball metaball3 = Metaball(metaCentreTEMP3,0.01f,vec3(0.0f,0.75f,0.75f));
+    Metaball metaball1 = Metaball(metaCentreTEMP,0.2f,vec3(1.0f,0,0));//vec3(0.0f,0.75f,0.75f));
+    Metaball metaball2 = Metaball(metaCentreTEMP2,0.2f,vec3(0.0f,1.0f,0.0f));//vec3(1.0f,0.5f,0.5f));
+    // Metaball metaball3 = Metaball(metaCentreTEMP3,0.001f,vec3(0.0f,0.0f,1.0f));
     metaballs.push_back( metaball1 );
     metaballs.push_back( metaball2 );
-    metaballs.push_back( metaball3 );
+    // metaballs.push_back( metaball3 );
     originalMetaballs.push_back( metaball1 );
     originalMetaballs.push_back( metaball2 );
-    originalMetaballs.push_back( metaball3 );
+    // originalMetaballs.push_back( metaball3 );
     
     Update(cameraPos, yaw, originalLightPos, cameraMatrix, isAAOn, screenAccumulator, sampleCount, focalSphereRad, isAreaLight,isFog, metaballs);
 
