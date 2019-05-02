@@ -23,11 +23,11 @@ using glm::vec2;
 #define SCREEN_HEIGHT 800//256
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
-#define LIGHT_POWER 0.0f//5.0f
+#define LIGHT_POWER 5.0f
 #define NEAR_CLIP 0.5f
 #define FAR_CLIP 5.0f
 #define ANGLE_OF_VIEW 3.14159265/2  //field of view is 90 deg as long as focal length is half screen dimension 
-#define AMBIENT_POWER 1.0f
+#define AMBIENT_POWER 0.5f
 #define TEXTURE_SIZE 300
 //focal length is SCREEN_WIDTH/2
 
@@ -37,6 +37,7 @@ bool quit;
 bool isWireframe;
 bool showNormalMap;
 bool isFog = false;
+bool isAO = false;
 
 
 //============= Structures =============//
@@ -524,6 +525,10 @@ void Update(vec4& cameraPos, int& yaw, mat4& cameraMatrix, vec4& lightPos)
     {
       isFog = !isFog;
     }
+    if (e.key.keysym.scancode == SDL_SCANCODE_O)
+    {
+      isAO = !isAO;
+    }
 
     //Quit trigger
     if( e.type == SDL_QUIT )
@@ -847,52 +852,63 @@ void FillDepthBuffer(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HE
 float SSAO(const Pixel& p,float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],vec4& currentNormal,vec4& currentTangent, vec4& currentBitangent)
 {
 
-  //form TBN matrix
-  vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
-  vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
-  vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
-  mat3 TBN = mat3(currentTangentV3,currentBitangentV3,currentNormalV3);
-  //transform the normal from the normal map to be oriented with the surface using the TBN matrix
+  // //form TBN matrix
+  // vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
+  // vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
+  // vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
+  // mat3 TBN = mat3(currentTangentV3,currentBitangentV3,currentNormalV3);
+  // //transform the normal from the normal map to be oriented with the surface using the TBN matrix
 
   float AO = 0.0f;
   int sampleCount = 16;
-  float sampleRadius = 0.1f;
+  float sampleRadius = 0.2f;
+  float validSamples = 0.0f;
 
   //calculate AO for pixel p
   vec3 pixel3DPos = vec3(p.pos3d.x,p.pos3d.y,p.pos3d.z);
 
+  // vec3 mySamples[4];
+  // mySamples[0] = vec3(0.0f,0.0f,0.1f);
+  // mySamples[1] = vec3(0.0f,0.0f,-0.1f);
+  // mySamples[3] = vec3(0.1f,0.0f,0.0f);
+  // mySamples[3] = vec3(-0.1f,0.0f,0.0f);
+  vec3 randVector;
+  //rejection sample hemisphere portion
   for(int i = 0; i< sampleCount; i++)
   {
-    //random samples in range [-sampleRadius,sampleRadius]
-    // float randX = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
-    // float randY = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
-    // float randZ = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
-    //hemispherical sampling
-    float randX = ((float) rand() / (RAND_MAX)) * sampleRadius;
-    float randY = ((float) rand() / (RAND_MAX)) * sampleRadius;
-    float randZ = ((float) rand() / (RAND_MAX)) * sampleRadius;
-    vec3 randVector = vec3(randX,randY,randZ);
-    randVector = TBN * randVector;
-    //transform randVector to sample space
-    vec3 sample3DPos = pixel3DPos + randVector;
-    vec2 sample2DPos = PerspectiveProjectSimple(sample3DPos,SCREEN_WIDTH/2);
-    if(sample2DPos.x >=0 && sample2DPos.x < SCREEN_WIDTH && sample2DPos.y >= 0 && sample2DPos.y < SCREEN_HEIGHT)
-    {
-      if(depthBuffer[(int)sample2DPos.y][(int)sample2DPos.x] >  (1/sample3DPos.z))
+      //random samples in range [-sampleRadius,sampleRadius]
+      float randX = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+      float randY = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+      float randZ = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+      //hemispherical sampling
+      // float randX = ((float) rand() / (RAND_MAX)) * sampleRadius;
+      // float randY = ((float) rand() / (RAND_MAX)) * sampleRadius;
+      // float randZ = ((float) rand() / (RAND_MAX)) * sampleRadius;
+      randVector = vec3(randX,randY,randZ);
+      vec3 normalV3 = vec3(currentNormal);
+      if(dot(normalize(randVector),normalize(normalV3)) >0.05f)
       {
-        AO += 1.0f;
+        validSamples ++;
+        //randVector = TBN * randVector;
+        //transform randVector to sample space
+        vec3 sample3DPos = pixel3DPos + randVector;
+        //vec3 sample3DPos = pixel3DPos + mySamples[i];
+        vec2 sample2DPos = PerspectiveProjectSimple(sample3DPos,SCREEN_WIDTH/2);
+        if(sample2DPos.x >=0 && sample2DPos.x < SCREEN_WIDTH && sample2DPos.y >= 0 && sample2DPos.y < SCREEN_HEIGHT)
+        {
+          if( 1/depthBuffer[(int)sample2DPos.y][(int)sample2DPos.x] < (sample3DPos.z) -0.001)
+          {
+            AO += 1.0f;
+          }
+        }
       }
-    }
+    
   }
-  //AO = (1.0f - AO)/128.0f;
-  AO = 1 - (AO/sampleCount);
-  
-  
- 
 
+  //cout << validSamples << "\n";
+  if(validSamples == 0.0f){validSamples = 1.0f;cout<<"0"<<"\n";}
+  AO = 1 - (AO/(validSamples));
 
-
-  //cout << AO << "\n";
   return AO;
 }
 
@@ -1068,6 +1084,10 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     //shading = diffuse + specular + ambient {note: specular should not be affected by material color}
     vec3 diffuseShading = k_d * diffuse * currentReflectance;
     vec3 ambientShading = indirectLightPowerPerArea * currentReflectance;
+    if(isAO)
+    {
+      ambientShading = currentReflectance;
+    }
     vec3 specularShading;
     if(isMetallic)
     {
@@ -1084,13 +1104,23 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     {
       fogFactor = GetFogFactor(p.pos3d);
     }
-    //cout << fogFactor << "\n";
-
-    float AO = SSAO(p,depthBuffer,currentNormal,currentTangent,currentBitangent);
+    
+    float AO = 1.0f;
+    if(isAO)
+    {
+       AO = SSAO(p,depthBuffer,currentNormal,currentTangent,currentBitangent);
+    }
+    
     vec3 shading = diffuseShading + (ambientShading * AO) + specularShading;
+
+    if(isAO)
+    {
+      shading = ambientShading * AO;
+    }
     vec3 fogColor = vec3(0.5f,0.5f,0.5f);
     vec3 shadingWithFog = ((1-fogFactor) * fogColor) + (fogFactor * shading);
     PutPixelSDL(screen, p.x, p.y, shadingWithFog);
+    //PutPixelSDL(screen, p.x, p.y, vec3(depthBuffer[p.y][p.x] ,depthBuffer[p.y][p.x],depthBuffer[p.y][p.x])+AO);
 
     //depthBuffer[p.y][p.x] = p.zinv;
 

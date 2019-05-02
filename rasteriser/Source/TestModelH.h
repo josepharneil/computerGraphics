@@ -109,6 +109,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	G = vec4(240,165,272,1);
 	H = vec4( 82,165,225,1);
 
+	
 	// Front
 	triangles.push_back( Triangle(E,B,A,red) );
 	triangles.push_back( Triangle(E,F,B,red) );
@@ -128,6 +129,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// TOP
 	triangles.push_back( Triangle(G,F,E,red) );
 	triangles.push_back( Triangle(G,H,F,red) );
+	
 
 	// ---------------------------------------------------------------------------
 	// Tall block
@@ -142,6 +144,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	G = vec4(472,330,406,1);
 	H = vec4(314,330,456,1);
  
+	
 	// Front
 	triangles.push_back( Triangle(E,B,A,blue) );
 	triangles.push_back( Triangle(E,F,B,blue) );
@@ -161,6 +164,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// TOP
 	triangles.push_back( Triangle(G,F,E,blue) );
 	triangles.push_back( Triangle(G,H,F,blue) );
+	
 
 
 	// ----------------------------------------------
