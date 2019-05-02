@@ -1377,6 +1377,12 @@ vec3 CheckerBoard(const float& x, const float& y)
 }
 
 
+
+/////////////////////////////////////////////////////
+//NOTE: CODE BELOW HERE IS COPIED FROM PICOPNG LIBRARY
+
+/////////////////////////////////////////////////////
+
 //============= picoPNG =============//
 
 #include <vector>
