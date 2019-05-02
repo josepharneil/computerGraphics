@@ -5,6 +5,7 @@
 #include "TestModelH.h"
 #include <stdint.h>
 #include <math.h>
+#include <random>
 
 
 
@@ -22,12 +23,13 @@ using glm::vec2;
 #define SCREEN_HEIGHT 800//256
 #define FULLSCREEN_MODE false
 #define PI 3.14159265
-#define LIGHT_POWER 5.0f
+#define LIGHT_POWER 0.0f//5.0f
 #define NEAR_CLIP 0.5f
 #define FAR_CLIP 5.0f
 #define ANGLE_OF_VIEW 3.14159265/2  //field of view is 90 deg as long as focal length is half screen dimension 
-#define AMBIENT_POWER 0.3f
+#define AMBIENT_POWER 1.0f
 #define TEXTURE_SIZE 300
+//focal length is SCREEN_WIDTH/2
 
 
 //============= Global Variables =============//
@@ -99,6 +101,7 @@ int decodePNG(std::vector<unsigned char>& out_image, unsigned long& image_width,
 void loadFile(std::vector<unsigned char>& buffer, const std::string& filename);
 vec3 getPixelRGB(vector<unsigned char> image,int x, int y);
 float GetFogFactor(vec4 position);
+vec2 PerspectiveProjectSimple(vec3 v,float focalLength);
 
 vec3 CheckerBoard(const float& x, const float& y);
 void LoadTexture(Image& imageStruct, const string& textureNameString, bool isNormalize = true);
@@ -600,6 +603,13 @@ void PerspectiveProject( const Vertex& vertex, Pixel& p, vec4& cameraPos, float&
   p.textureCoordinates = vertex.textureCoordinates;
 }
 
+vec2 PerspectiveProjectSimple(vec3 v,float focalLength)
+{
+  int x = round((focalLength * (v.x / v.z)) + (SCREEN_WIDTH /2));
+  int y = round((focalLength * (v.y / v.z)) + (SCREEN_HEIGHT/2)); 
+  return vec2(x,y);
+}
+
 void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPixels, vector<Pixel>& rightPixels, screen* screen )
 {
   // 1. Find max and min y-value of the polygon
@@ -832,12 +842,51 @@ void FillDepthBuffer(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HE
   }
 }
 
+float SSAO(const Pixel& p,float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],vec4& currentNormal)
+{
+
+  float AO = 0.0f;
+  int sampleCount = 16;
+  float sampleRadius = 0.1f;
+
+  //calculate AO for pixel p
+  vec3 pixel3DPos = vec3(p.pos3d.x,p.pos3d.y,p.pos3d.z);
+
+  for(int i = 0; i< sampleCount; i++)
+  {
+    //random samples in range [-sampleRadius,sampleRadius]
+    float randX = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+    float randY = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+    float randZ = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+    vec3 randVector = vec3(randX,randY,randZ);
+    vec3 sample3DPos = pixel3DPos + randVector;
+    vec2 sample2DPos = PerspectiveProjectSimple(sample3DPos,SCREEN_WIDTH/2);
+    if(sample2DPos.x >=0 && sample2DPos.x < SCREEN_WIDTH && sample2DPos.y >= 0 && sample2DPos.y < SCREEN_HEIGHT)
+    {
+      if(depthBuffer[(int)sample2DPos.y][(int)sample2DPos.x] >  (1/sample3DPos.z))
+      {
+        AO += 1.0f;
+      }
+    }
+  }
+  //AO = (1.0f - AO)/128.0f;
+  AO = 1 - (AO/sampleCount);
+  
+  
+ 
+
+
+
+  cout << AO << "\n";
+  return 1.0f;
+}
 
 //depth buffer has been prefilled
 void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH], 
                 vec4& currentNormal, vec4& currentTangent, vec4& currentBitangent, vec3& currentReflectance, 
                 vec4& lightPos, vec3& lightPower, vec3& indirectLightPowerPerArea, const string& textureName )
 {
+
   //defaults
   //default diffuse is the argument currentReflectance
   float k_s = 0.0f; //default specularity
@@ -1015,16 +1064,17 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     }
 
 
-    float fogAmount = 1.0f;
+    float fogFactor = 1.0f;
     if(isFog)
     {
-      fogAmount = GetFogFactor(p.pos3d);
+      fogFactor = GetFogFactor(p.pos3d);
     }
-    //cout << fogAmount << "\n";
-    
-    vec3 shading = diffuseShading + ambientShading + specularShading;
+    //cout << fogFactor << "\n";
+
+    float AO = SSAO(p,depthBuffer,currentNormal);
+    vec3 shading = diffuseShading + (ambientShading * AO) + specularShading;
     vec3 fogColor = vec3(0.5f,0.5f,0.5f);
-    vec3 shadingWithFog = ((1-fogAmount) * fogColor) + (fogAmount * shading);
+    vec3 shadingWithFog = ((1-fogFactor) * fogColor) + (fogFactor * shading);
     PutPixelSDL(screen, p.x, p.y, shadingWithFog);
 
     //depthBuffer[p.y][p.x] = p.zinv;
@@ -1038,12 +1088,12 @@ float GetFogFactor(vec4 position)
   float density = 0.5f;
   float distance = length(vec3(position.x,position.y,position.z));
   float f = exp(-pow((density * distance),2));
-
   //clamp to 0,1
   if(f < 0) {f = 0.0f;}
   if(f > 1) {f = 1.0f;}
   return f;
 }
+
 
 //Helpful Functions
 vec4 NormaliseNoHomogenous(vec4 vector4)
