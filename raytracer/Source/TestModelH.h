@@ -159,24 +159,24 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	// triangles.push_back( Triangle(G,F,E,red) );
 	// triangles.push_back( Triangle(G,H,F,red) );
 	// Front
-	triangles.push_back( Triangle(E,B,A,cyan,black,0.0f,1.0f) );
-	triangles.push_back( Triangle(E,F,B,cyan,black,0.0f,1.0f) );
+	// triangles.push_back( Triangle(E,B,A,cyan,black,0.0f,1.0f) );
+	// triangles.push_back( Triangle(E,F,B,cyan,black,0.0f,1.0f) );
 
-	// Front
-	triangles.push_back( Triangle(F,H,D,cyan,black,0.0f,1.0f) );
-	triangles.push_back( Triangle(F,D,B,cyan,black,0.0f,1.0f) );
+	// // Front
+	// triangles.push_back( Triangle(F,H,D,cyan,black,0.0f,1.0f) );
+	// triangles.push_back( Triangle(F,D,B,cyan,black,0.0f,1.0f) );
 
-	// BACK
-	triangles.push_back( Triangle(H,C,D,cyan,black,0.0f,1.0) );
-	triangles.push_back( Triangle(H,G,C,cyan,black,0.0f,1.0) );
+	// // BACK
+	// triangles.push_back( Triangle(H,C,D,cyan,black,0.0f,1.0) );
+	// triangles.push_back( Triangle(H,G,C,cyan,black,0.0f,1.0) );
 
-	// LEFT
-	triangles.push_back( Triangle(G,E,C,cyan,black,0.0f,1.0) );
-	triangles.push_back( Triangle(E,A,C,cyan,black,0.0f,1.0) );
+	// // LEFT
+	// triangles.push_back( Triangle(G,E,C,cyan,black,0.0f,1.0) );
+	// triangles.push_back( Triangle(E,A,C,cyan,black,0.0f,1.0) );
 
-	// TOP
-	triangles.push_back( Triangle(G,F,E,cyan,black,0.0f,1.0) );
-	triangles.push_back( Triangle(G,H,F,cyan,black,0.0f,1.0) );
+	// // TOP
+	// triangles.push_back( Triangle(G,F,E,cyan,black,0.0f,1.0) );
+	// triangles.push_back( Triangle(G,H,F,cyan,black,0.0f,1.0) );
 	// ---------------------------------------------------------------------------
 	// Tall block
 

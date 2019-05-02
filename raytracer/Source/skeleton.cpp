@@ -199,9 +199,9 @@ int main( int argc, char* argv[] )
 
   bool isAAOn = false;
 
-  bool isAreaLight = false;
+  bool isAreaLight = true;
   
-  bool isFog = true;
+  bool isFog = false;
 
   
 
@@ -224,9 +224,9 @@ int main( int argc, char* argv[] )
   originalSpheres.reserve( 5*2*3 );
 
   vec4 centreTEMP(-0.4f,-0.1f,-0.5f,1.0f);
-  vec4 centreTEMP2(0.3f,-0.2f,-0.3f,1.0f);
+  vec4 centreTEMP2(0.3f,0.5f,-0.6f,1.0f);
   Sphere mySphere = Sphere(centreTEMP,0.2f,vec3(0.75f,0.75f,0.75f), vec3(0.0f,0.0f,0.0f),0.7f,1.0f);
-  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,2.42f);
+  Sphere mySphere2 = Sphere(centreTEMP2,0.2f,vec3(1.0f,1.0f,1.0f), vec3(0.0f,0.0f,0.0f),0.0f,1.52f);
   spheres.push_back( mySphere );
   spheres.push_back( mySphere2 );
   originalSpheres.push_back( mySphere );
