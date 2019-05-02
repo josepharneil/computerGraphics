@@ -102,6 +102,8 @@ void loadFile(std::vector<unsigned char>& buffer, const std::string& filename);
 vec3 getPixelRGB(vector<unsigned char> image,int x, int y);
 float GetFogFactor(vec4 position);
 vec2 PerspectiveProjectSimple(vec3 v,float focalLength);
+float SSAO(const Pixel& p,float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],vec4& currentNormal,vec4& currentTangent, vec4& currentBitangent);
+
 
 vec3 CheckerBoard(const float& x, const float& y);
 void LoadTexture(Image& imageStruct, const string& textureNameString, bool isNormalize = true);
@@ -842,8 +844,15 @@ void FillDepthBuffer(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HE
   }
 }
 
-float SSAO(const Pixel& p,float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],vec4& currentNormal)
+float SSAO(const Pixel& p,float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],vec4& currentNormal,vec4& currentTangent, vec4& currentBitangent)
 {
+
+  //form TBN matrix
+  vec3 currentNormalV3 = normalize(vec3(currentNormal.x,currentNormal.y,currentNormal.z)); //the surface normal
+  vec3 currentTangentV3 = normalize(vec3(currentTangent.x,currentTangent.y,currentTangent.z));
+  vec3 currentBitangentV3 = normalize(vec3(currentBitangent.x,currentBitangent.y,currentBitangent.z));
+  mat3 TBN = mat3(currentTangentV3,currentBitangentV3,currentNormalV3);
+  //transform the normal from the normal map to be oriented with the surface using the TBN matrix
 
   float AO = 0.0f;
   int sampleCount = 16;
@@ -855,10 +864,16 @@ float SSAO(const Pixel& p,float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],vec4& c
   for(int i = 0; i< sampleCount; i++)
   {
     //random samples in range [-sampleRadius,sampleRadius]
-    float randX = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
-    float randY = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
-    float randZ = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+    // float randX = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+    // float randY = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+    // float randZ = ((((float) rand() / (RAND_MAX))*2)-1) * sampleRadius;
+    //hemispherical sampling
+    float randX = ((float) rand() / (RAND_MAX)) * sampleRadius;
+    float randY = ((float) rand() / (RAND_MAX)) * sampleRadius;
+    float randZ = ((float) rand() / (RAND_MAX)) * sampleRadius;
     vec3 randVector = vec3(randX,randY,randZ);
+    randVector = TBN * randVector;
+    //transform randVector to sample space
     vec3 sample3DPos = pixel3DPos + randVector;
     vec2 sample2DPos = PerspectiveProjectSimple(sample3DPos,SCREEN_WIDTH/2);
     if(sample2DPos.x >=0 && sample2DPos.x < SCREEN_WIDTH && sample2DPos.y >= 0 && sample2DPos.y < SCREEN_HEIGHT)
@@ -877,8 +892,8 @@ float SSAO(const Pixel& p,float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH],vec4& c
 
 
 
-  cout << AO << "\n";
-  return 1.0f;
+  //cout << AO << "\n";
+  return AO;
 }
 
 //depth buffer has been prefilled
@@ -1071,7 +1086,7 @@ void PixelShader(const Pixel& p, screen* screen, float depthBuffer[SCREEN_HEIGHT
     }
     //cout << fogFactor << "\n";
 
-    float AO = SSAO(p,depthBuffer,currentNormal);
+    float AO = SSAO(p,depthBuffer,currentNormal,currentTangent,currentBitangent);
     vec3 shading = diffuseShading + (ambientShading * AO) + specularShading;
     vec3 fogColor = vec3(0.5f,0.5f,0.5f);
     vec3 shadingWithFog = ((1-fogFactor) * fogColor) + (fogFactor * shading);
